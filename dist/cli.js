@@ -137,17 +137,13 @@ if (!subcmd || subcmd === '--help' || subcmd === '-h') {
     console.log(`Usage: flowdeck <command> [options]
 
 Commands:
-  open <title>           Create a new issue folder
-  list                   Show all open issues
-  send [-m "<message>"]  Stage + commit (if -m given), then prompt Claude with the diff
-  install                Register the MCP server in Claude
+  init                   Create .flowdeck/ scaffold with templates
+  send [-m "<message>"]  Stage + commit (if -m given), then hand off to Claude
 
 Examples:
-  flowdeck open "Fix login bug"
-  flowdeck list
-  flowdeck send -m "implement the stripe webhook"
+  flowdeck init
+  flowdeck send -m "add stripe webhook"
   flowdeck send
-  flowdeck install
 `);
     process.exit(0);
 }
@@ -225,7 +221,7 @@ Each folder under \`.flowdeck/\` is a work area. Each has its own \`TODO.md\`.
 
 > Your first work area. Add tasks for Claude under \`## BOT\`, tasks for yourself under \`## HUMAN\`.
 > Notes on a task go on the line below, indented with \`>\`.
-> For a new subject, use \`flowdeck open "<name>"\`. For a subtask, create a subfolder here.
+> For a new subject, create a new folder under \`.flowdeck/\`. For a subtask, create a subfolder here.
 
 ## BOT
 
@@ -251,69 +247,6 @@ dist/
 }
 else if (subcmd === 'send') {
     await sendCommand(rest);
-}
-else if (subcmd === 'open') {
-    const title = rest.join(' ');
-    if (!title) {
-        console.error('Error: title is required');
-        process.exit(1);
-    }
-    const cwd = process.env.FLOWDECK_ROOT ?? process.cwd();
-    const openDir = join(cwd, '.flowdeck', 'open');
-    execSync(`mkdir -p "${openDir}"`);
-    const slug = title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '');
-    const issueDir = join(openDir, slug);
-    execSync(`mkdir -p "${issueDir}"`);
-    const readmePath = join(issueDir, 'README.md');
-    execSync(`printf "# ${title}\\n\\n" > "${readmePath}"`);
-    console.log(`✓ Created .flowdeck/open/${slug}/README.md`);
-}
-else if (subcmd === 'list') {
-    const cwd = process.env.FLOWDECK_ROOT ?? process.cwd();
-    const openDir = join(cwd, '.flowdeck', 'open');
-    function buildTree(dir, indent = '') {
-        try {
-            execSync(`test -d "${dir}"`, { stdio: 'pipe' });
-        }
-        catch {
-            return 'No open issues.';
-        }
-        try {
-            const entries = execSync(`ls -1 "${dir}"`, { encoding: 'utf8', stdio: 'pipe' })
-                .trim()
-                .split('\n')
-                .filter(e => { if (!e)
-                return false; try {
-                execSync(`test -d "${dir}/${e}"`, { stdio: 'pipe' });
-                return true;
-            }
-            catch {
-                return false;
-            } })
-                .sort();
-            return entries
-                .map(e => {
-                const readmePath = join(dir, e, 'README.md');
-                let title = e;
-                try {
-                    const content = execSync(`head -1 "${readmePath}"`, { encoding: 'utf8', stdio: 'pipe' });
-                    title = content.replace(/^#+ /, '').trim();
-                }
-                catch { }
-                const subTree = buildTree(join(dir, e), indent + '  ');
-                return [`${indent}- **${e}** — ${title}`, subTree].filter(Boolean).join('\n');
-            })
-                .join('\n');
-        }
-        catch {
-            return 'No open issues.';
-        }
-    }
-    const tree = buildTree(openDir);
-    console.log('\n' + tree + '\n');
 }
 else {
     console.error(`Unknown command: ${subcmd}`);

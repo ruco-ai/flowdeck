@@ -1,74 +1,118 @@
 # flowdeck
 
-Your issues live in folders. Done is a folder. Git commits are the conversation.
+Human↔AI collaboration via `TODO.md` files and git commits.
 
-```
-open/
-  fix-dark-mode/
-    README.md
-  add-payments/
-    README.md
-    stripe-webhook/       ← sub-issue
-      README.md
-done/
-  onboarding-revamp/
-    README.md
-```
-
-No schemas. No pipelines. No review queues.  
-Human writes a message. Claude reads, edits files, commits. Repeat.
+You write tasks. Claude does them. Git tracks the conversation.
 
 ## Install
 
 ```bash
 npm install -g flowdeck
-flowdeck install        # registers the MCP server in Claude
 ```
 
-Restart Claude desktop / reload VS Code to apply.  
-Set `FLOWDECK_ROOT` to point at a specific project directory (defaults to cwd).
+Requires Node.js ≥ 18 and [Claude Code](https://claude.ai/code).
+
+## Quick start
 
 ```bash
-FLOWDECK_ROOT=/path/to/project flowdeck install
+cd your-project
+flowdeck init
 ```
 
-## Workflow: send → /flowdeck-do → commit
+This creates a `.flowdeck/` scaffold:
 
-**Human:**
+```
+.flowdeck/
+  AGENT.md          ← instructions Claude reads on every send
+  TODO.md           ← project-level tasks
+  start/
+    TODO.md         ← your first work area
+  templates/        ← mdblu templates (SPEC, MISSION, ADR, …)
+  .flowdeckignore
+```
+
+Add a task for Claude in `.flowdeck/start/TODO.md`:
+
+```markdown
+## BOT
+- [ ] Add a README to this project
+```
+
+Then hand off:
+
 ```bash
-flowdeck send -m "implement the stripe webhook"
-# Stages all changes, commits with the message, then prompts Claude with the diff
+flowdeck send -m "added first task"
+```
+
+Claude reads your `AGENT.md`, sees the diff, finds the unchecked task, does the work, marks it done, and commits.
+
+## How it works
+
+### TODO.md is the shared board
+
+Every folder under `.flowdeck/` has a `TODO.md` with two sections:
+
+```markdown
+## BOT
+- [ ] Task for Claude to do
+- [x] Completed task
+  > short note on what was done
+
+## HUMAN
+- [ ] Something Claude needs from you
+  > why it's needed
+```
+
+- **`## BOT`** — Claude's inbox. Claude completes these and marks them `[x]`.
+- **`## HUMAN`** — Your inbox. Claude adds items here when it needs you to act.
+
+### `flowdeck send` is the handoff
+
+```bash
+flowdeck send -m "describe what you just did"
+# stages all changes, commits, then hands off to Claude
 
 flowdeck send
-# No commit — just prompts Claude with the latest commit diff
+# no commit — hands off with the current diff
 ```
 
-**Claude (in Claude Code):**
-1. Call `/flowdeck-do` with `action="context"` to see what was asked
-2. Read files with Claude's Read tool
-3. Edit/create files with Claude's Write/Edit tools
-4. Call `/flowdeck-do` with `action="commit"` and a summary message
+Claude picks up where you left off, works through the `## BOT` tasks, and commits its changes.
 
-**Node:**
-```
-git commit -m "implemented webhook.ts with signature verification and tests"
-```
+### AGENT.md is the protocol
 
-**Result:** Git log shows the full conversation.
-```
-abc1234 implemented webhook.ts with signature verification and tests
-def5678 implement the stripe webhook
+`.flowdeck/AGENT.md` tells Claude how to behave in your project. Edit it to change how Claude works — what it focuses on, what it avoids, how it structures commits. The default is a sensible starting point.
+
+### Templates
+
+`.flowdeck/templates/` contains a curated set of [mdblu](https://github.com/ruco-ai/mdblu) templates (SPEC, MISSION, OPEN-QUESTIONS, ADR, GENERALINSIGHTS, PROJECTINSIGHTS, CLAUDE). Claude can use these when creating structured documents during a session.
+
+To get more templates:
+```bash
+mdblu get --all --output .flowdeck/templates/
 ```
 
-## MCP Tools
+## Commands
 
-| Tool | What it does |
-|------|-------------|
-| `open` | Create a new issue folder with README.md |
-| `close` | Move an issue from `open/` to `done/` |
-| `note` | Append a note to an issue README.md |
-| `list` | Show the open issues tree |
-| `/flowdeck-do` | Get context (what was asked + current state), or commit work |
+| Command | What it does |
+|---------|-------------|
+| `flowdeck init` | Create `.flowdeck/` scaffold in the current directory |
+| `flowdeck send [-m "msg"]` | Commit (if `-m` given) and hand off to Claude |
 
-Sub-issues are subfolders. Move the parent to `done/` and the whole tree goes with it.  
-Edit any file directly — there's no special format to break.
+## Folder structure
+
+New subject → new folder under `.flowdeck/`:
+```
+.flowdeck/
+  payments/
+    TODO.md
+    stripe-webhook/     ← subtask
+      TODO.md
+  auth/
+    TODO.md
+```
+
+Claude manages the structure based on your `AGENT.md` instructions.
+
+## License
+
+MIT
