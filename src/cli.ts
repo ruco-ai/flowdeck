@@ -83,6 +83,11 @@ if (subcmd === 'install') {
   installServer('flowdeck', serverPath, { FLOWDECK_ROOT: root })
   console.log(`\nflowdeck installed — root: ${root}`)
   console.log('Restart Claude desktop / reload VS Code to apply.\n')
+} else if (subcmd === 'init') {
+  const cwd = process.env.FLOWDECK_ROOT ?? process.cwd()
+  const flowdeckDir = join(cwd, '.flowdeck')
+  execSync(`mkdir -p "${join(flowdeckDir, 'open')}" "${join(flowdeckDir, 'done')}"`)
+  console.log(`✓ Initialized .flowdeck/ scaffold in ${cwd}`)
 } else if (subcmd === 'send') {
   await sendCommand(rest)
 } else if (subcmd === 'open') {
@@ -93,13 +98,9 @@ if (subcmd === 'install') {
   }
 
   const cwd = process.env.FLOWDECK_ROOT ?? process.cwd()
-  const openDir = join(cwd, 'open')
+  const openDir = join(cwd, '.flowdeck', 'open')
 
-  try {
-    execSync(`test -d "${openDir}"`, { stdio: 'pipe' })
-  } catch {
-    execSync(`mkdir -p "${openDir}"`, { cwd })
-  }
+  execSync(`mkdir -p "${openDir}"`)
 
   const slug = title
     .toLowerCase()
@@ -107,15 +108,15 @@ if (subcmd === 'install') {
     .replace(/^-|-$/g, '')
 
   const issueDir = join(openDir, slug)
-  execSync(`mkdir -p "${issueDir}"`, { cwd })
+  execSync(`mkdir -p "${issueDir}"`)
 
   const readmePath = join(issueDir, 'README.md')
-  execSync(`printf "# ${title}\\n\\n" > "${readmePath}"`, { cwd })
+  execSync(`printf "# ${title}\\n\\n" > "${readmePath}"`)
 
-  console.log(`✓ Created open/${slug}/README.md`)
+  console.log(`✓ Created .flowdeck/open/${slug}/README.md`)
 } else if (subcmd === 'list') {
   const cwd = process.env.FLOWDECK_ROOT ?? process.cwd()
-  const openDir = join(cwd, 'open')
+  const openDir = join(cwd, '.flowdeck', 'open')
 
   function buildTree(dir: string, indent: string = ''): string {
     try {

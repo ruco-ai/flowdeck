@@ -1,6 +1,8 @@
 
 BOT:
-- [BOT]Create folders under a scafolder .flowdeck
+- [ ][BOT]Create folders under a scafolder .flowdeck
+--Feedback:
+- [ ][BOT]Show a spinning while claude is on it
 --Feedback:
 
 HUMAN:

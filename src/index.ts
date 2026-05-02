@@ -18,14 +18,18 @@ function root(): string {
   return process.env.FLOWDECK_ROOT ?? process.cwd()
 }
 
+function flowdeckDir(): string {
+  return join(root(), '.flowdeck')
+}
+
 function openDir(): string {
-  const d = join(root(), 'open')
+  const d = join(flowdeckDir(), 'open')
   if (!existsSync(d)) mkdirSync(d, { recursive: true })
   return d
 }
 
 function doneDir(): string {
-  const d = join(root(), 'done')
+  const d = join(flowdeckDir(), 'done')
   if (!existsSync(d)) mkdirSync(d, { recursive: true })
   return d
 }

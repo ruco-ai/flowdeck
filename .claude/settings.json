@@ -5,6 +5,12 @@
       "args": [
         "/Users/ruco/projects/main/flowdev/dist/index.js"
       ]
+    },
+    "flowdeck": {
+      "command": "node",
+      "args": [
+        "/Users/ruco/projects/flowdeck/dist/index.js"
+      ]
     }
   }
 }
