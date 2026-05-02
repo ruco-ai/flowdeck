@@ -1,0 +1,4 @@
+{
+  "permissions": "permissive",
+  "transport": "stdio"
+}
