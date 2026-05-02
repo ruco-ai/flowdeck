@@ -53,10 +53,14 @@ if (!subcmd || subcmd === '--help' || subcmd === '-h') {
   console.log(`Usage: flowdeck <command> [options]
 
 Commands:
+  open <title>           Create a new issue folder
+  list                   Show all open issues
   send -m "<message>"    Stage changes, commit with message, prompt Claude via /flowdeck-do
   install                Register the MCP server in Claude
 
 Examples:
+  flowdeck open "Fix login bug"
+  flowdeck list
   flowdeck send -m "implement the stripe webhook"
   flowdeck install
 `)
@@ -72,6 +76,72 @@ if (subcmd === 'install') {
   console.log('Restart Claude desktop / reload VS Code to apply.\n')
 } else if (subcmd === 'send') {
   await sendCommand(rest)
+} else if (subcmd === 'open') {
+  const title = rest.join(' ')
+  if (!title) {
+    console.error('Error: title is required')
+    process.exit(1)
+  }
+
+  const cwd = process.env.FLOWDECK_ROOT ?? process.cwd()
+  const openDir = join(cwd, 'open')
+
+  try {
+    execSync(`test -d "${openDir}"`, { stdio: 'pipe' })
+  } catch {
+    execSync(`mkdir -p "${openDir}"`, { cwd })
+  }
+
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+
+  const issueDir = join(openDir, slug)
+  execSync(`mkdir -p "${issueDir}"`, { cwd })
+
+  const readmePath = join(issueDir, 'README.md')
+  execSync(`printf "# ${title}\\n\\n" > "${readmePath}"`, { cwd })
+
+  console.log(`✓ Created open/${slug}/README.md`)
+} else if (subcmd === 'list') {
+  const cwd = process.env.FLOWDECK_ROOT ?? process.cwd()
+  const openDir = join(cwd, 'open')
+
+  function buildTree(dir: string, indent: string = ''): string {
+    try {
+      execSync(`test -d "${dir}"`, { stdio: 'pipe' })
+    } catch {
+      return 'No open issues.'
+    }
+
+    try {
+      const entries = execSync(`ls -1 "${dir}"`, { encoding: 'utf8', stdio: 'pipe' })
+        .trim()
+        .split('\n')
+        .filter(e => { if (!e) return false; try { execSync(`test -d "${dir}/${e}"`, { stdio: 'pipe' }); return true } catch { return false } })
+        .sort()
+
+      return entries
+        .map(e => {
+          const readmePath = join(dir, e, 'README.md')
+          let title = e
+          try {
+            const content = execSync(`head -1 "${readmePath}"`, { encoding: 'utf8', stdio: 'pipe' })
+            title = content.replace(/^#+ /, '').trim()
+          } catch {}
+
+          const subTree: string = buildTree(join(dir, e), indent + '  ')
+          return [`${indent}- **${e}** — ${title}`, subTree].filter(Boolean).join('\n')
+        })
+        .join('\n')
+    } catch {
+      return 'No open issues.'
+    }
+  }
+
+  const tree = buildTree(openDir)
+  console.log('\n' + tree + '\n')
 } else {
   console.error(`Unknown command: ${subcmd}`)
   process.exit(1)
