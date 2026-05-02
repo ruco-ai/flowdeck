@@ -8,7 +8,8 @@
 ## BOT
 - [x] Read `AGENT.md` and confirm you're ready
   > Read and understood. `start/TODO.md` has no pending tasks.
-- [ ] Make the message along %flowdeck send optional. if is there no -m, just read the diff to understand which md files you need to read.
+- [x] Make the message along %flowdeck send optional. if is there no -m, just read the diff to understand which md files you need to read.
+  > Removed the error guard; when no -m is given the commit step is skipped and Claude is prompted with `git show HEAD --stat`. Updated help text, README, and the init-generated TODO.md template.
 
 ## HUMAN
 - [X] Run `flowdeck send -m "init"` to start

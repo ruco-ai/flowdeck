@@ -21,22 +21,19 @@ async function sendCommand(args: string[]): Promise<void> {
     i++
   }
 
-  if (!message) {
-    console.error('Error: -m "message" is required')
-    process.exit(1)
-  }
-
   const cwd = process.env.FLOWDECK_ROOT ?? process.cwd()
 
-  try {
-    execSync('git add -A', { cwd, stdio: 'pipe' })
-    execSync(`git commit -m "${message.replace(/"/g, '\\"')}"`, { cwd, stdio: 'pipe' })
-    console.log(`✓ Committed: "${message}"`)
-  } catch (e) {
-    const error = e instanceof Error ? e.message : String(e)
-    if (!error.includes('nothing to commit')) {
-      console.error(`Error: ${error}`)
-      process.exit(1)
+  if (message) {
+    try {
+      execSync('git add -A', { cwd, stdio: 'pipe' })
+      execSync(`git commit -m "${message.replace(/"/g, '\\"')}"`, { cwd, stdio: 'pipe' })
+      console.log(`✓ Committed: "${message}"`)
+    } catch (e) {
+      const error = e instanceof Error ? e.message : String(e)
+      if (!error.includes('nothing to commit')) {
+        console.error(`Error: ${error}`)
+        process.exit(1)
+      }
     }
   }
 
@@ -46,9 +43,10 @@ async function sendCommand(args: string[]): Promise<void> {
   let diff = ''
   try { diff = execSync('git show HEAD --stat', { cwd, encoding: 'utf8', stdio: 'pipe' }).trim() } catch {}
 
+  const commitLine = message ? `The human just committed: "${message}"\n\n` : ''
   const prompt = agentMd
-    ? `${agentMd}\n\n---\n\nThe human just committed: "${message}"\n\nChanged files:\n${diff || '(none)'}`
-    : `The human just committed: "${message}"\n\nChanged files:\n${diff || '(none)'}\n\nProcess any unchecked BOT tasks in .flowdeck/ TODO.md files, mark done, commit.`
+    ? `${agentMd}\n\n---\n\n${commitLine}Changed files:\n${diff || '(none)'}`
+    : `${commitLine}Changed files:\n${diff || '(none)'}\n\nProcess any unchecked BOT tasks in .flowdeck/ TODO.md files, mark done, commit.`
 
   const frames = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏']
   let frame = 0
@@ -143,13 +141,14 @@ if (!subcmd || subcmd === '--help' || subcmd === '-h') {
 Commands:
   open <title>           Create a new issue folder
   list                   Show all open issues
-  send -m "<message>"    Stage changes, commit with message, prompt Claude via /flowdeck-do
+  send [-m "<message>"]  Stage + commit (if -m given), then prompt Claude with the diff
   install                Register the MCP server in Claude
 
 Examples:
   flowdeck open "Fix login bug"
   flowdeck list
   flowdeck send -m "implement the stripe webhook"
+  flowdeck send
   flowdeck install
 `)
   process.exit(0)
@@ -218,7 +217,7 @@ Each folder under \`.flowdeck/\` is a work area. Each has its own \`TODO.md\`.
 > Human↔AI collaboration via \`TODO.md\` files.
 > \`## BOT\` is Claude's inbox — tasks Claude should complete.
 > \`## HUMAN\` is your inbox — things Claude needs from you.
-> Run \`flowdeck send -m "<what you did>"\` to commit your work and hand off to Claude.
+> Run \`flowdeck send -m "<what you did>"\` to commit and hand off to Claude, or \`flowdeck send\` to hand off without a new commit.
 
 ## BOT
 - [ ] Read \`AGENT.md\` and confirm you're ready

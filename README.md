@@ -37,8 +37,10 @@ FLOWDECK_ROOT=/path/to/project flowdeck install
 **Human:**
 ```bash
 flowdeck send -m "implement the stripe webhook"
-# Stages changes and commits: "implement the stripe webhook"
-# Prints: use /flowdeck-do in Claude
+# Stages all changes, commits with the message, then prompts Claude with the diff
+
+flowdeck send
+# No commit — just prompts Claude with the latest commit diff
 ```
 
 **Claude (in Claude Code):**
