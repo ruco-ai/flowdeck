@@ -62,6 +62,7 @@ async function sendCommand(args: string[]): Promise<void> {
     '--mcp-config', mcpConfig,
     '--dangerously-skip-permissions',
     '--output-format', 'stream-json',
+    '--verbose',
   ], { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
 
   let buf = ''

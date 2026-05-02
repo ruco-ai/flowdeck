@@ -53,6 +53,7 @@ async function sendCommand(args) {
         '--mcp-config', mcpConfig,
         '--dangerously-skip-permissions',
         '--output-format', 'stream-json',
+        '--verbose',
     ], { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
     let buf = '';
     child.stdout.on('data', (chunk) => {
