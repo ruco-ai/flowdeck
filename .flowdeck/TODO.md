@@ -6,8 +6,8 @@
 > Run `flowdeck send -m "<what you did>"` to commit your work and hand off to Claude.
 
 ## BOT
-- [x] Read `AGENT.md` and confirm you're ready
-  > Workflow understood. `start/TODO.md` has no pending BOT tasks.
+- [ ] Read `AGENT.md` and confirm you're ready
+  > Leave a short note here, then check `start/TODO.md`
 
 ## HUMAN
 - [ ] Run `flowdeck send -m "init"` to start

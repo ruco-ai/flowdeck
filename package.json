@@ -3,20 +3,14 @@
   "version": "0.1.0",
   "type": "module",
   "files": [
-    "dist",
-    "mcpster.config.json"
+    "dist"
   ],
   "bin": {
     "flowdeck": "dist/cli.js"
   },
   "scripts": {
     "build": "tsc && chmod +x dist/cli.js",
-    "start": "node dist/index.js",
     "dev": "tsc --watch"
-  },
-  "dependencies": {
-    "mcpster": "^0.2.7",
-    "zod": "^3"
   },
   "devDependencies": {
     "@types/node": "^22",

@@ -4,3 +4,6 @@
 *.swo
 *~
 .env
+.flowdeck
+.claude
+

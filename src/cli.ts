@@ -1,9 +1,8 @@
 #!/usr/bin/env node
-import { installServer } from 'mcpster'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execSync, spawn } from 'node:child_process'
-import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from 'node:fs'
 
 const [,, subcmd, ...rest] = process.argv
 
@@ -51,15 +50,6 @@ async function sendCommand(args: string[]): Promise<void> {
     ? `${agentMd}\n\n---\n\nThe human just committed: "${message}"\n\nChanged files:\n${diff || '(none)'}`
     : `The human just committed: "${message}"\n\nChanged files:\n${diff || '(none)'}\n\nProcess any unchecked BOT tasks in .flowdeck/ TODO.md files, mark done, commit.`
 
-  const __dirname = dirname(fileURLToPath(import.meta.url))
-  const serverPath = join(__dirname, 'index.js')
-
-  const mcpConfig = JSON.stringify({
-    mcpServers: {
-      flowdeck: { command: 'node', args: [serverPath], env: { FLOWDECK_ROOT: cwd } },
-    },
-  })
-
   const frames = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏']
   let frame = 0
   let label = 'thinking…'
@@ -70,7 +60,6 @@ async function sendCommand(args: string[]): Promise<void> {
 
   const child = spawn('claude', [
     '-p', prompt,
-    '--mcp-config', mcpConfig,
     '--dangerously-skip-permissions',
     '--output-format', 'stream-json',
     '--verbose',
@@ -109,6 +98,44 @@ async function sendCommand(args: string[]): Promise<void> {
   if (code !== 0) process.exit(code)
 }
 
+// -- mdblu template resolution ------------------------------------------------
+const MDBLU_GH_RAW = 'https://raw.githubusercontent.com/ruco-ai/mdblu/master/templates'
+
+// Curated subset — run `mdblu get --all` or add files manually for more
+const FLOWDECK_TEMPLATES = [
+  'SPEC.md.template',
+  'MISSION.md.template',
+  'OPEN-QUESTIONS.md.template',
+  'ADR.md.template',
+  'GENERALINSIGHTS.md.template',
+  'PROJECTINSIGHTS.md.template',
+  'CLAUDE.md.template',
+]
+
+async function scaffoldTemplates(destDir: string, cwd: string): Promise<string> {
+  mkdirSync(destDir, { recursive: true })
+
+  // 1. local .mdblu/templates/
+  const localDir = join(cwd, '.mdblu', 'templates')
+  if (existsSync(localDir)) {
+    const files = readdirSync(localDir).filter(f => FLOWDECK_TEMPLATES.includes(f))
+    for (const f of files) writeFileSync(join(destDir, f), readFileSync(join(localDir, f)))
+    return `local .mdblu/ (${files.length} templates)`
+  }
+
+  // 2. GitHub
+  const results = await Promise.all(FLOWDECK_TEMPLATES.map(async name => {
+    try {
+      const r = await fetch(`${MDBLU_GH_RAW}/${name}`, { signal: AbortSignal.timeout(5000) })
+      if (!r.ok) return false
+      writeFileSync(join(destDir, name), await r.text())
+      return true
+    } catch { return false }
+  }))
+  const n = results.filter(Boolean).length
+  return `GitHub (${n}/${FLOWDECK_TEMPLATES.length} templates)`
+}
+
 // -- main =====================================================================
 if (!subcmd || subcmd === '--help' || subcmd === '-h') {
   console.log(`Usage: flowdeck <command> [options]
@@ -128,14 +155,7 @@ Examples:
   process.exit(0)
 }
 
-if (subcmd === 'install') {
-  const __dirname = dirname(fileURLToPath(import.meta.url))
-  const serverPath = join(__dirname, 'index.js')
-  const root = process.env.FLOWDECK_ROOT ?? process.cwd()
-  installServer('flowdeck', serverPath, { FLOWDECK_ROOT: root })
-  console.log(`\nflowdeck installed — root: ${root}`)
-  console.log('Restart Claude desktop / reload VS Code to apply.\n')
-} else if (subcmd === 'init') {
+if (subcmd === 'init') {
   const cwd = process.env.FLOWDECK_ROOT ?? process.cwd()
   const fd = join(cwd, '.flowdeck')
 
@@ -229,10 +249,15 @@ dist/
 .env
 `)
 
+  process.stdout.write('  fetching mdblu templates…')
+  const templateSource = await scaffoldTemplates(join(fd, 'templates'), cwd)
+  process.stdout.write(`\r✓ templates — ${templateSource}\n`)
+
   console.log(`✓ .flowdeck/ initialized
-  AGENT.md        — instructions for Claude
-  TODO.md         — onboarding and project-level tasks
-  start/TODO.md   — first work area
+  AGENT.md           — instructions for Claude
+  TODO.md            — onboarding and project-level tasks
+  start/TODO.md      — first work area
+  templates/         — mdblu templates (source: ${templateSource})
   .flowdeckignore
 `)
 } else if (subcmd === 'send') {
