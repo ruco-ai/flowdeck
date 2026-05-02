@@ -3,6 +3,7 @@ import { installServer } from 'mcpster'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execSync, spawn } from 'node:child_process'
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs'
 
 const [,, subcmd, ...rest] = process.argv
 
@@ -40,6 +41,16 @@ async function sendCommand(args: string[]): Promise<void> {
     }
   }
 
+  const agentPath = join(cwd, '.flowdeck', 'AGENT.md')
+  const agentMd = existsSync(agentPath) ? readFileSync(agentPath, 'utf8').trim() : ''
+
+  let diff = ''
+  try { diff = execSync('git show HEAD --stat', { cwd, encoding: 'utf8', stdio: 'pipe' }).trim() } catch {}
+
+  const prompt = agentMd
+    ? `${agentMd}\n\n---\n\nThe human just committed: "${message}"\n\nChanged files:\n${diff || '(none)'}`
+    : `The human just committed: "${message}"\n\nChanged files:\n${diff || '(none)'}\n\nProcess any unchecked BOT tasks in .flowdeck/ TODO.md files, mark done, commit.`
+
   const __dirname = dirname(fileURLToPath(import.meta.url))
   const serverPath = join(__dirname, 'index.js')
 
@@ -58,7 +69,7 @@ async function sendCommand(args: string[]): Promise<void> {
   const clear = () => { clearInterval(spin); process.stdout.write('\r' + ' '.repeat(label.length + 4) + '\r') }
 
   const child = spawn('claude', [
-    '-p', message,
+    '-p', prompt,
     '--mcp-config', mcpConfig,
     '--dangerously-skip-permissions',
     '--output-format', 'stream-json',
@@ -126,9 +137,104 @@ if (subcmd === 'install') {
   console.log('Restart Claude desktop / reload VS Code to apply.\n')
 } else if (subcmd === 'init') {
   const cwd = process.env.FLOWDECK_ROOT ?? process.cwd()
-  const flowdeckDir = join(cwd, '.flowdeck')
-  execSync(`mkdir -p "${join(flowdeckDir, 'open')}" "${join(flowdeckDir, 'done')}"`)
-  console.log(`✓ Initialized .flowdeck/ scaffold in ${cwd}`)
+  const fd = join(cwd, '.flowdeck')
+
+  if (existsSync(fd)) {
+    console.error('Error: .flowdeck/ already exists')
+    process.exit(1)
+  }
+
+  mkdirSync(join(fd, 'start'), { recursive: true })
+
+  writeFileSync(join(fd, 'AGENT.md'), `\
+# Agent Instructions
+
+You are working in a flowdeck project. Human↔AI collaboration happens through \`TODO.md\` files.
+Each folder under \`.flowdeck/\` is a work area. Each has its own \`TODO.md\`.
+
+## What to do on every \`flowdeck send\`
+
+1. Read the diff in this prompt to understand what the human just changed
+2. Scan all \`TODO.md\` files under \`.flowdeck/\` for unchecked \`- [ ]\` items in \`## BOT\` sections
+3. Complete each task — read files, edit code, whatever the task requires
+4. Mark each done task \`- [x]\` and add a short note on the line below (indented with \`>\`)
+5. If you need the human to do something, add \`- [ ]\` items to \`## HUMAN\`
+6. Commit all changes with a short, factual message
+
+## TODO.md format
+
+\`\`\`markdown
+# <topic>
+
+## BOT
+- [x] Completed task
+  > short note on what was done
+- [ ] Pending task
+  > optional context or clarification
+
+## HUMAN
+- [ ] Something that needs human action
+  > why it's needed
+\`\`\`
+
+## Folder structure
+
+- \`.flowdeck/<topic>/\` — a work area or subject
+- \`.flowdeck/<topic>/<subtask>/\` — a subtask within a topic
+- New topic → \`flowdeck open "<name>"\`
+- New subtask → create the subfolder manually or ask the human to
+
+## Rules
+
+- Complete tasks before committing — never commit a half-done task as done
+- Keep notes brief and factual, not conversational
+- Never modify \`## HUMAN\` items already written by the human
+- When in doubt, ask in \`## HUMAN\` rather than assuming
+`)
+
+  writeFileSync(join(fd, 'TODO.md'), `\
+# flowdeck
+
+> Human↔AI collaboration via \`TODO.md\` files.
+> \`## BOT\` is Claude's inbox — tasks Claude should complete.
+> \`## HUMAN\` is your inbox — things Claude needs from you.
+> Run \`flowdeck send -m "<what you did>"\` to commit your work and hand off to Claude.
+
+## BOT
+- [ ] Read \`AGENT.md\` and confirm you're ready
+  > Leave a short note here, then check \`start/TODO.md\`
+
+## HUMAN
+- [ ] Run \`flowdeck send -m "init"\` to start
+  > Claude will read this file, check \`start/TODO.md\`, and get to work
+`)
+
+  writeFileSync(join(fd, 'start', 'TODO.md'), `\
+# start
+
+> Your first work area. Add tasks for Claude under \`## BOT\`, tasks for yourself under \`## HUMAN\`.
+> Notes on a task go on the line below, indented with \`>\`.
+> For a new subject, use \`flowdeck open "<name>"\`. For a subtask, create a subfolder here.
+
+## BOT
+
+## HUMAN
+`)
+
+  writeFileSync(join(fd, '.flowdeckignore'), `\
+node_modules/
+dist/
+.git/
+*.log
+.env
+`)
+
+  console.log(`✓ .flowdeck/ initialized
+  AGENT.md        — instructions for Claude
+  TODO.md         — onboarding and project-level tasks
+  start/TODO.md   — first work area
+  .flowdeckignore
+`)
 } else if (subcmd === 'send') {
   await sendCommand(rest)
 } else if (subcmd === 'open') {

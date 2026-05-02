@@ -1,9 +1,13 @@
 
 BOT:
 - [x][BOT]Create folders under a scafolder .flowdeck
---Feedback:
+--Comments:
+_________[content][sender]
 - [x][BOT]Show a spinning while claude is on it
---Feedback:
+--Comments:
+_________[content][sender]
 
 HUMAN:
 - [ ]Check if scafolder is working on other wordspaces
+--Comments:
+_________[content][sender]
