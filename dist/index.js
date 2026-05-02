@@ -12,14 +12,17 @@ const { permissions = 'permissive', transport = 'stdio', http } = config;
 function root() {
     return process.env.FLOWDECK_ROOT ?? process.cwd();
 }
+function flowdeckDir() {
+    return join(root(), '.flowdeck');
+}
 function openDir() {
-    const d = join(root(), 'open');
+    const d = join(flowdeckDir(), 'open');
     if (!existsSync(d))
         mkdirSync(d, { recursive: true });
     return d;
 }
 function doneDir() {
-    const d = join(root(), 'done');
+    const d = join(flowdeckDir(), 'done');
     if (!existsSync(d))
         mkdirSync(d, { recursive: true });
     return d;

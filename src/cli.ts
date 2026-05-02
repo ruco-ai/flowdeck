@@ -2,7 +2,7 @@
 import { installServer } from 'mcpster'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { execSync, spawnSync } from 'node:child_process'
+import { execSync, spawn } from 'node:child_process'
 
 const [,, subcmd, ...rest] = process.argv
 
@@ -49,12 +49,52 @@ async function sendCommand(args: string[]): Promise<void> {
     },
   })
 
-  console.log(`→ Claude is on it\n`)
-  const result = spawnSync('claude', ['-p', message, '--mcp-config', mcpConfig, '--dangerously-skip-permissions'], {
-    cwd,
-    stdio: 'inherit',
+  const frames = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏']
+  let frame = 0
+  let label = 'thinking…'
+  const spin = setInterval(() => {
+    process.stdout.write(`\r${frames[frame++ % frames.length]} ${label}   `)
+  }, 80)
+  const clear = () => { clearInterval(spin); process.stdout.write('\r' + ' '.repeat(label.length + 4) + '\r') }
+
+  const child = spawn('claude', [
+    '-p', message,
+    '--mcp-config', mcpConfig,
+    '--dangerously-skip-permissions',
+    '--output-format', 'stream-json',
+  ], { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
+
+  let buf = ''
+  child.stdout!.on('data', (chunk: Buffer) => {
+    buf += chunk.toString()
+    const lines = buf.split('\n')
+    buf = lines.pop() ?? ''
+    for (const line of lines) {
+      if (!line.trim()) continue
+      try {
+        const evt = JSON.parse(line)
+        if (evt.type === 'assistant') {
+          for (const b of (evt.message?.content ?? [])) {
+            if (b.type === 'tool_use') {
+              const name = String(b.name).replace(/^mcp__[^_]+__/, '')
+              label = `${name}(${JSON.stringify(b.input).slice(0, 50)})`
+            } else if (b.type === 'text' && b.text?.trim()) {
+              clear(); console.log(b.text)
+            }
+          }
+        } else if (evt.type === 'result' && evt.result?.trim()) {
+          clear(); console.log(evt.result)
+        }
+      } catch {}
+    }
   })
-  if (result.status !== 0) process.exit(result.status ?? 1)
+  child.stderr!.on('data', (chunk: Buffer) => {
+    clear(); process.stderr.write(chunk)
+  })
+
+  const code = await new Promise<number>(res => child.on('close', c => res(c ?? 0)))
+  clear()
+  if (code !== 0) process.exit(code)
 }
 
 // -- main =====================================================================

@@ -2,7 +2,7 @@
 import { installServer } from 'mcpster';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execSync, spawnSync } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 const [, , subcmd, ...rest] = process.argv;
 // -- send command: stage, commit, ask claude to work --------------------------
 async function sendCommand(args) {
@@ -41,13 +41,57 @@ async function sendCommand(args) {
             flowdeck: { command: 'node', args: [serverPath], env: { FLOWDECK_ROOT: cwd } },
         },
     });
-    console.log(`→ Claude is on it\n`);
-    const result = spawnSync('claude', ['-p', message, '--mcp-config', mcpConfig, '--dangerously-skip-permissions'], {
-        cwd,
-        stdio: 'inherit',
+    const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+    let frame = 0;
+    let label = 'thinking…';
+    const spin = setInterval(() => {
+        process.stdout.write(`\r${frames[frame++ % frames.length]} ${label}   `);
+    }, 80);
+    const clear = () => { clearInterval(spin); process.stdout.write('\r' + ' '.repeat(label.length + 4) + '\r'); };
+    const child = spawn('claude', [
+        '-p', message,
+        '--mcp-config', mcpConfig,
+        '--dangerously-skip-permissions',
+        '--output-format', 'stream-json',
+    ], { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+    let buf = '';
+    child.stdout.on('data', (chunk) => {
+        buf += chunk.toString();
+        const lines = buf.split('\n');
+        buf = lines.pop() ?? '';
+        for (const line of lines) {
+            if (!line.trim())
+                continue;
+            try {
+                const evt = JSON.parse(line);
+                if (evt.type === 'assistant') {
+                    for (const b of (evt.message?.content ?? [])) {
+                        if (b.type === 'tool_use') {
+                            const name = String(b.name).replace(/^mcp__[^_]+__/, '');
+                            label = `${name}(${JSON.stringify(b.input).slice(0, 50)})`;
+                        }
+                        else if (b.type === 'text' && b.text?.trim()) {
+                            clear();
+                            console.log(b.text);
+                        }
+                    }
+                }
+                else if (evt.type === 'result' && evt.result?.trim()) {
+                    clear();
+                    console.log(evt.result);
+                }
+            }
+            catch { }
+        }
     });
-    if (result.status !== 0)
-        process.exit(result.status ?? 1);
+    child.stderr.on('data', (chunk) => {
+        clear();
+        process.stderr.write(chunk);
+    });
+    const code = await new Promise(res => child.on('close', c => res(c ?? 0)));
+    clear();
+    if (code !== 0)
+        process.exit(code);
 }
 // -- main =====================================================================
 if (!subcmd || subcmd === '--help' || subcmd === '-h') {
@@ -75,6 +119,12 @@ if (subcmd === 'install') {
     console.log(`\nflowdeck installed — root: ${root}`);
     console.log('Restart Claude desktop / reload VS Code to apply.\n');
 }
+else if (subcmd === 'init') {
+    const cwd = process.env.FLOWDECK_ROOT ?? process.cwd();
+    const flowdeckDir = join(cwd, '.flowdeck');
+    execSync(`mkdir -p "${join(flowdeckDir, 'open')}" "${join(flowdeckDir, 'done')}"`);
+    console.log(`✓ Initialized .flowdeck/ scaffold in ${cwd}`);
+}
 else if (subcmd === 'send') {
     await sendCommand(rest);
 }
@@ -85,26 +135,21 @@ else if (subcmd === 'open') {
         process.exit(1);
     }
     const cwd = process.env.FLOWDECK_ROOT ?? process.cwd();
-    const openDir = join(cwd, 'open');
-    try {
-        execSync(`test -d "${openDir}"`, { stdio: 'pipe' });
-    }
-    catch {
-        execSync(`mkdir -p "${openDir}"`, { cwd });
-    }
+    const openDir = join(cwd, '.flowdeck', 'open');
+    execSync(`mkdir -p "${openDir}"`);
     const slug = title
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-|-$/g, '');
     const issueDir = join(openDir, slug);
-    execSync(`mkdir -p "${issueDir}"`, { cwd });
+    execSync(`mkdir -p "${issueDir}"`);
     const readmePath = join(issueDir, 'README.md');
-    execSync(`printf "# ${title}\\n\\n" > "${readmePath}"`, { cwd });
-    console.log(`✓ Created open/${slug}/README.md`);
+    execSync(`printf "# ${title}\\n\\n" > "${readmePath}"`);
+    console.log(`✓ Created .flowdeck/open/${slug}/README.md`);
 }
 else if (subcmd === 'list') {
     const cwd = process.env.FLOWDECK_ROOT ?? process.cwd();
-    const openDir = join(cwd, 'open');
+    const openDir = join(cwd, '.flowdeck', 'open');
     function buildTree(dir, indent = '') {
         try {
             execSync(`test -d "${dir}"`, { stdio: 'pipe' });
