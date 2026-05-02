@@ -1,0 +1,6 @@
+# Fallback .gitignore
+.DS_Store
+*.swp
+*.swo
+*~
+.env
