@@ -2,7 +2,7 @@
 import { installServer } from 'mcpster';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execSync } from 'node:child_process';
+import { execSync, spawnSync } from 'node:child_process';
 const [, , subcmd, ...rest] = process.argv;
 // -- send command: stage, commit, ask claude to work --------------------------
 async function sendCommand(args) {
@@ -23,25 +23,48 @@ async function sendCommand(args) {
     }
     const cwd = process.env.FLOWDECK_ROOT ?? process.cwd();
     try {
-        // Stage and commit human's message
         execSync('git add -A', { cwd, stdio: 'pipe' });
         execSync(`git commit -m "${message.replace(/"/g, '\\"')}"`, { cwd, stdio: 'pipe' });
-        console.log(`\n✓ Committed: "${message}"`);
-        console.log('\nNow use the /flowdeck-do tool in Claude Code or Claude Desktop.');
-        console.log('Claude will see what you asked and can read/edit files.');
-        console.log('\nWhen Claude is done, they will commit their work.');
+        console.log(`✓ Committed: "${message}"`);
     }
     catch (e) {
         const error = e instanceof Error ? e.message : String(e);
-        if (error.includes('nothing to commit')) {
-            console.log('\nNo changes to commit. Skipping to Claude...');
-            console.log('Use the /flowdeck-do tool in Claude Code or Claude Desktop.');
-        }
-        else {
+        if (!error.includes('nothing to commit')) {
             console.error(`Error: ${error}`);
             process.exit(1);
         }
     }
+    // Detect which open issue was touched in the last commit
+    let issuePath;
+    try {
+        const files = execSync('git show --name-only --format="" HEAD', { cwd, encoding: 'utf8', stdio: 'pipe' })
+            .trim().split('\n');
+        const slug = files.filter(f => f.startsWith('open/')).map(f => f.split('/')[1]).filter(Boolean)[0];
+        if (slug)
+            issuePath = slug;
+    }
+    catch { }
+    if (!issuePath) {
+        console.error('Could not detect an open issue in the last commit.');
+        process.exit(1);
+    }
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const serverPath = join(__dirname, 'index.js');
+    const mcpConfig = JSON.stringify({
+        mcpServers: {
+            flowdeck: { command: 'node', args: [serverPath], env: { FLOWDECK_ROOT: cwd } },
+        },
+    });
+    const prompt = `Use the flowdeck MCP tool "flowdeck-do" on path "${issuePath}": ` +
+        `call with action="context" to read what was asked, do the work by reading and editing files, ` +
+        `then call with action="commit" and a concise summary message.`;
+    console.log(`→ Claude is handling issue: ${issuePath}\n`);
+    const result = spawnSync('claude', ['-p', prompt, '--mcp-config', mcpConfig, '--dangerously-skip-permissions'], {
+        cwd,
+        stdio: 'inherit',
+    });
+    if (result.status !== 0)
+        process.exit(result.status ?? 1);
 }
 // -- main =====================================================================
 if (!subcmd || subcmd === '--help' || subcmd === '-h') {
