@@ -34,20 +34,6 @@ async function sendCommand(args) {
             process.exit(1);
         }
     }
-    // Detect which open issue was touched in the last commit
-    let issuePath;
-    try {
-        const files = execSync('git show --name-only --format="" HEAD', { cwd, encoding: 'utf8', stdio: 'pipe' })
-            .trim().split('\n');
-        const slug = files.filter(f => f.startsWith('open/')).map(f => f.split('/')[1]).filter(Boolean)[0];
-        if (slug)
-            issuePath = slug;
-    }
-    catch { }
-    if (!issuePath) {
-        console.error('Could not detect an open issue in the last commit.');
-        process.exit(1);
-    }
     const __dirname = dirname(fileURLToPath(import.meta.url));
     const serverPath = join(__dirname, 'index.js');
     const mcpConfig = JSON.stringify({
@@ -55,11 +41,8 @@ async function sendCommand(args) {
             flowdeck: { command: 'node', args: [serverPath], env: { FLOWDECK_ROOT: cwd } },
         },
     });
-    const prompt = `Use the flowdeck MCP tool "flowdeck-do" on path "${issuePath}": ` +
-        `call with action="context" to read what was asked, do the work by reading and editing files, ` +
-        `then call with action="commit" and a concise summary message.`;
-    console.log(`→ Claude is handling issue: ${issuePath}\n`);
-    const result = spawnSync('claude', ['-p', prompt, '--mcp-config', mcpConfig, '--dangerously-skip-permissions'], {
+    console.log(`→ Claude is on it\n`);
+    const result = spawnSync('claude', ['-p', message, '--mcp-config', mcpConfig, '--dangerously-skip-permissions'], {
         cwd,
         stdio: 'inherit',
     });
