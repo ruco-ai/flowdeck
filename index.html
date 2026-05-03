@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>flowdeck</title>
+  <meta name="description" content="Human↔AI collaboration via TODO.md files and git commits. You write tasks. Claude does them. Git tracks the conversation." />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0c0c0c;
+      --bg-card:   #111111;
+      --bg-code:   #161616;
+      --border:    #222222;
+      --border-hi: #2e2e2e;
+      --text:      #e8e8e8;
+      --text-dim:  #888888;
+      --text-mute: #444444;
+      --accent:    #e8e8e8;
+      --green:     #4ade80;
+      --blue:      #60a5fa;
+      --mono:      'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+      --sans:      -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2rem;
+      height: 56px;
+      background: rgba(12,12,12,.88);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo {
+      font-family: var(--mono);
+      font-size: 14px;
+      letter-spacing: .04em;
+      color: var(--text);
+      display: flex; align-items: center; gap: .5rem;
+    }
+    .nav-logo span { color: var(--text-dim); }
+    .nav-links {
+      display: flex; align-items: center; gap: 1.5rem;
+    }
+    .nav-links a {
+      font-size: 13px;
+      color: var(--text-dim);
+      transition: color .15s;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-gh {
+      display: flex; align-items: center; gap: .4rem;
+      padding: .35rem .9rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border-hi);
+      border-radius: 6px;
+      font-size: 13px;
+      color: var(--text) !important;
+      transition: border-color .15s, background .15s;
+    }
+    .nav-gh:hover { border-color: #444; background: #1a1a1a; }
+
+    /* ── HERO ── */
+    .hero {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 100px 2rem 80px;
+    }
+    .hero-tag {
+      display: inline-flex; align-items: center; gap: .5rem;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      border: 1px solid var(--border-hi);
+      padding: .3rem .7rem;
+      border-radius: 4px;
+      margin-bottom: 1.75rem;
+    }
+    .hero-tag::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      display: block;
+    }
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -.03em;
+      color: var(--text);
+      margin-bottom: 1.25rem;
+    }
+    h1 .dim { color: var(--text-dim); }
+    .hero-sub {
+      font-size: 18px;
+      color: var(--text-dim);
+      line-height: 1.6;
+      max-width: 540px;
+      margin-bottom: 2.5rem;
+    }
+    .hero-actions {
+      display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+    }
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: .5rem;
+      padding: .6rem 1.2rem;
+      background: var(--text);
+      color: var(--bg);
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -.01em;
+      transition: opacity .15s;
+    }
+    .btn-primary:hover { opacity: .88; }
+    .btn-secondary {
+      display: inline-flex; align-items: center; gap: .5rem;
+      padding: .6rem 1.2rem;
+      background: transparent;
+      color: var(--text-dim);
+      border: 1px solid var(--border-hi);
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color .15s, border-color .15s;
+    }
+    .btn-secondary:hover { color: var(--text); border-color: #444; }
+
+    /* ── TERMINAL ── */
+    .terminal-wrap {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 0 2rem 80px;
+    }
+    .terminal {
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      font-family: var(--mono);
+      font-size: 13.5px;
+      line-height: 1.7;
+    }
+    .terminal-bar {
+      display: flex; align-items: center; gap: .5rem;
+      padding: .7rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: #0f0f0f;
+    }
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot-r { background: #ff5f57; }
+    .dot-y { background: #febc2e; }
+    .dot-g { background: #28c840; }
+    .terminal-title {
+      margin-left: auto; margin-right: auto;
+      font-size: 11px;
+      color: var(--text-mute);
+      letter-spacing: .04em;
+    }
+    .terminal-body { padding: 1.25rem 1.5rem; }
+    .line { display: flex; gap: .75rem; }
+    .prompt { color: var(--text-mute); user-select: none; }
+    .cmd { color: var(--text); }
+    .comment { color: var(--text-mute); }
+    .out { color: var(--text-dim); padding-left: 1.5rem; }
+    .out-green { color: var(--green); padding-left: 1.5rem; }
+    .out-blue  { color: var(--blue);  padding-left: 1.5rem; }
+    .spacer { height: .5rem; }
+
+    /* ── DIVIDER ── */
+    .section-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 0;
+    }
+
+    /* ── HOW IT WORKS ── */
+    .section {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 80px 2rem;
+    }
+    .section-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--text-mute);
+      margin-bottom: 2rem;
+    }
+    h2 {
+      font-size: clamp(1.4rem, 3vw, 1.9rem);
+      font-weight: 700;
+      letter-spacing: -.025em;
+      margin-bottom: .75rem;
+    }
+    .section-intro {
+      color: var(--text-dim);
+      font-size: 16px;
+      line-height: 1.7;
+      max-width: 540px;
+      margin-bottom: 3rem;
+    }
+
+    /* steps */
+    .steps {
+      display: grid;
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .step {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 1.25rem;
+      padding: 1.5rem;
+      background: var(--bg-card);
+      align-items: start;
+      transition: background .15s;
+    }
+    .step:hover { background: #131313; }
+    .step-num {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-mute);
+      padding-top: .15rem;
+    }
+    .step h3 {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -.01em;
+      margin-bottom: .35rem;
+      color: var(--text);
+    }
+    .step p {
+      font-size: 13.5px;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+    .step code {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: var(--bg-code);
+      border: 1px solid var(--border-hi);
+      padding: .1rem .35rem;
+      border-radius: 3px;
+      color: var(--text);
+    }
+
+    /* ── TODO FORMAT ── */
+    .todo-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    @media (max-width: 560px) {
+      .todo-grid { grid-template-columns: 1fr; }
+    }
+    .todo-card {
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .todo-card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: #0f0f0f;
+    }
+    .todo-card-title {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+    .badge {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      padding: .2rem .5rem;
+      border-radius: 3px;
+    }
+    .badge-bot {
+      background: rgba(96,165,250,.1);
+      color: var(--blue);
+      border: 1px solid rgba(96,165,250,.2);
+    }
+    .badge-human {
+      background: rgba(74,222,128,.1);
+      color: var(--green);
+      border: 1px solid rgba(74,222,128,.2);
+    }
+    .todo-body {
+      padding: 1rem;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.85;
+    }
+    .todo-done { color: var(--text-mute); }
+    .todo-done::before { content: '- [x] '; }
+    .todo-done-note { color: var(--text-mute); padding-left: 1.5rem; font-size: 11.5px; }
+    .todo-done-note::before { content: '> '; }
+    .todo-pending { color: var(--text-dim); }
+    .todo-pending::before { content: '- [ ] '; }
+    .todo-note { color: var(--text-mute); padding-left: 1.5rem; font-size: 11.5px; }
+    .todo-note::before { content: '> '; }
+    .todo-section { color: var(--text-mute); margin-bottom: .25rem; }
+
+    /* ── FEATURES ── */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .feature {
+      background: var(--bg-card);
+      padding: 1.5rem;
+      transition: background .15s;
+    }
+    .feature:hover { background: #131313; }
+    .feature-icon {
+      font-size: 20px;
+      margin-bottom: .75rem;
+      display: block;
+    }
+    .feature h3 {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -.01em;
+      margin-bottom: .4rem;
+    }
+    .feature p {
+      font-size: 13px;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    /* ── COMMANDS ── */
+    .commands {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .command {
+      display: grid;
+      grid-template-columns: minmax(260px, auto) 1fr;
+      gap: 1.5rem;
+      padding: 1.25rem 1.5rem;
+      background: var(--bg-card);
+      align-items: start;
+      transition: background .15s;
+    }
+    .command:hover { background: #131313; }
+    @media (max-width: 600px) {
+      .command { grid-template-columns: 1fr; gap: .5rem; }
+    }
+    .command-code {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text);
+    }
+    .command-code .flag { color: var(--blue); }
+    .command-desc {
+      font-size: 13.5px;
+      color: var(--text-dim);
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .footer-logo {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text-mute);
+    }
+    .footer-links {
+      display: flex; gap: 1.5rem;
+    }
+    .footer-links a {
+      font-size: 13px;
+      color: var(--text-mute);
+      transition: color .15s;
+    }
+    .footer-links a:hover { color: var(--text-dim); }
+
+    /* ── INLINE CODE ── */
+    p code, li code {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: var(--bg-code);
+      border: 1px solid var(--border-hi);
+      padding: .1rem .35rem;
+      border-radius: 3px;
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">
+    flowdeck<span>/</span>
+  </div>
+  <div class="nav-links">
+    <a href="#how-it-works">How it works</a>
+    <a href="#commands">Commands</a>
+    <a href="https://github.com/ruco-ai/flowdeck" target="_blank" rel="noopener" class="nav-gh">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.54-1.38-1.33-1.75-1.33-1.75-1.09-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02 0 2.04.13 3 .4 2.28-1.55 3.29-1.23 3.29-1.23.66 1.66.25 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.62-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58C20.57 21.8 24 17.3 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-tag">npm install -g flowdeck</div>
+  <h1>Human↔AI collaboration<br><span class="dim">via MARCKDOWN files.</span></h1>
+  <p class="hero-sub">
+    You write tasks. Claude does them. Git tracks the conversation.
+    No plugins, no dashboards — just files and commits.
+  </p>
+  <div class="hero-actions">
+    <a href="#get-started" class="btn-primary">
+      Get started
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </a>
+    <a href="https://github.com/ruco-ai/flowdeck" target="_blank" rel="noopener" class="btn-secondary">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.54-1.38-1.33-1.75-1.33-1.75-1.09-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02 0 2.04.13 3 .4 2.28-1.55 3.29-1.23 3.29-1.23.66 1.66.25 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.62-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58C20.57 21.8 24 17.3 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      View on GitHub
+    </a>
+  </div>
+</section>
+
+<!-- TERMINAL -->
+<div class="terminal-wrap">
+  <div class="terminal">
+    <div class="terminal-bar">
+      <div class="dot dot-r"></div>
+      <div class="dot dot-y"></div>
+      <div class="dot dot-g"></div>
+      <div class="terminal-title">~/my-project</div>
+    </div>
+    <div class="terminal-body">
+      <div class="line"><span class="prompt">$</span><span class="cmd">npm install -g flowdeck</span></div>
+      <div class="spacer"></div>
+      <div class="line"><span class="prompt">$</span><span class="cmd">flowdeck init</span></div>
+      <div class="out-green">✓ templates — GitHub (7/7 templates)</div>
+      <div class="out-green">✓ .flowdeck/ initialized</div>
+      <div class="spacer"></div>
+      <div class="line"><span class="comment"># add a task to .flowdeck/start/TODO.md, then:</span></div>
+      <div class="spacer"></div>
+      <div class="line"><span class="prompt">$</span><span class="cmd">flowdeck send -m "add first task"</span></div>
+      <div class="out-green">✓ Committed: "add first task"</div>
+      <div class="out-blue">⠹ TodoWrite(.flowdeck/start/TODO.md)</div>
+      <div class="out-blue">⠸ Bash(git commit -m "mark task done")</div>
+      <div class="out-green">✓ done</div>
+    </div>
+  </div>
+</div>
+
+<hr class="section-divider" />
+
+<!-- HOW IT WORKS -->
+<section class="section" id="how-it-works">
+  <div class="section-label">How it works</div>
+  <h2>A shared board, two inboxes.</h2>
+  <p class="section-intro">
+    Every folder under <code>.flowdeck/</code> is a work area with its own <code>TODO.md</code>.
+    Tasks for Claude go under <code>## BOT</code>. Tasks that need you go under <code>## HUMAN</code>.
+  </p>
+
+  <div class="todo-grid" style="margin-bottom:3rem">
+    <div class="todo-card">
+      <div class="todo-card-header">
+        <span class="todo-card-title">.flowdeck/start/TODO.md</span>
+        <span class="badge badge-bot">BOT</span>
+      </div>
+      <div class="todo-body">
+        <div class="todo-section">## BOT</div>
+        <div class="todo-done">Add a README to this project</div>
+        <div class="todo-done-note">wrote README.md with install + usage</div>
+        <div class="todo-pending">Set up CI with GitHub Actions</div>
+        <div class="todo-note">push to main should run tests</div>
+      </div>
+    </div>
+    <div class="todo-card">
+      <div class="todo-card-header">
+        <span class="todo-card-title">.flowdeck/start/TODO.md</span>
+        <span class="badge badge-human">HUMAN</span>
+      </div>
+      <div class="todo-body">
+        <div class="todo-section">## HUMAN</div>
+        <div class="todo-pending">Confirm the deploy target</div>
+        <div class="todo-note">AWS or Fly.io? affects the CI config</div>
+        <div class="todo-pending">Add NPM_TOKEN to repo secrets</div>
+        <div class="todo-note">needed to publish the package</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="steps" id="get-started">
+    <div class="step">
+      <div class="step-num">01</div>
+      <div>
+        <h3>Init your project</h3>
+        <p>Run <code>flowdeck init</code> inside any project directory. It creates <code>.flowdeck/</code> with an <code>AGENT.md</code> protocol, a root <code>TODO.md</code>, a <code>start/</code> work area, and a curated set of <a href="https://github.com/ruco-ai/mdblu" style="color:var(--text-dim);text-decoration:underline;text-underline-offset:2px">mdblu</a> templates.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <div>
+        <h3>Write tasks for Claude</h3>
+        <p>Open <code>.flowdeck/start/TODO.md</code> and add unchecked items under <code>## BOT</code>. One task per line. Add a note below with <code>&gt;</code> if context helps.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <div>
+        <h3>Hand off with <code>flowdeck send</code></h3>
+        <p>Run <code>flowdeck send -m "what you just did"</code>. flowdeck commits your changes and invokes Claude Code with the diff and your <code>AGENT.md</code>. Claude picks up the tasks, does the work, marks them <code>[x]</code>, and commits.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">04</div>
+      <div>
+        <h3>Review, repeat</h3>
+        <p>Pull Claude's commit. Check <code>## HUMAN</code> for anything it needs from you. Add more tasks. Run <code>flowdeck send</code> again. Git is the full history of the conversation.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider" />
+
+<!-- FEATURES -->
+<section class="section">
+  <div class="section-label">Design</div>
+  <h2>No new primitives.</h2>
+  <p class="section-intro">flowdeck works with tools you already use.</p>
+  <div class="features">
+    <div class="feature">
+      <span class="feature-icon">📄</span>
+      <h3>Plain Markdown</h3>
+      <p>Tasks live in <code>TODO.md</code> files. Readable, diffable, git-friendly. No proprietary format.</p>
+    </div>
+    <div class="feature">
+      <span class="feature-icon">🔀</span>
+      <h3>Git is the log</h3>
+      <p>Every human→Claude and Claude→human exchange is a commit. <code>git log</code> is your conversation history.</p>
+    </div>
+    <div class="feature">
+      <span class="feature-icon">📋</span>
+      <h3>AGENT.md protocol</h3>
+      <p>Edit <code>.flowdeck/AGENT.md</code> to change how Claude behaves — focus, style, commit conventions.</p>
+    </div>
+    <div class="feature">
+      <span class="feature-icon">📦</span>
+      <h3>mdblu templates</h3>
+      <p>Ships with SPEC, MISSION, ADR, and more. Run <code>mdblu get --all</code> to pull the full library.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider" />
+
+<!-- COMMANDS -->
+<section class="section" id="commands">
+  <div class="section-label">Commands</div>
+  <h2>Two commands.</h2>
+  <p class="section-intro">That's the whole CLI.</p>
+  <div class="commands">
+    <div class="command">
+      <div class="command-code">flowdeck init</div>
+      <div class="command-desc">Create <code>.flowdeck/</code> scaffold in the current directory. Fetches mdblu templates from GitHub or a local <code>.mdblu/</code> if present.</div>
+    </div>
+    <div class="command">
+      <div class="command-code">flowdeck send <span class="flag">[-m "message"]</span></div>
+      <div class="command-desc">Stage and commit (if <code>-m</code> is given), then hand off to Claude Code. Passes the diff and <code>AGENT.md</code> as the prompt.</div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider" />
+
+<!-- INSTALL -->
+<section class="section">
+  <div class="section-label">Install</div>
+  <h2>Get started in 30 seconds.</h2>
+  <p class="section-intro">Requires Node.js ≥ 18 and <a href="https://claude.ai/code" target="_blank" rel="noopener" style="color:var(--text-dim);text-decoration:underline;text-underline-offset:2px">Claude Code</a>.</p>
+  <div class="terminal" style="max-width:520px">
+    <div class="terminal-bar">
+      <div class="dot dot-r"></div>
+      <div class="dot dot-y"></div>
+      <div class="dot dot-g"></div>
+    </div>
+    <div class="terminal-body">
+      <div class="line"><span class="prompt">$</span><span class="cmd">npm install -g flowdeck</span></div>
+      <div class="spacer"></div>
+      <div class="line"><span class="prompt">$</span><span class="cmd">cd your-project</span></div>
+      <div class="line"><span class="prompt">$</span><span class="cmd">flowdeck init</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">flowdeck — ruco-ai</div>
+  <div class="footer-links">
+    <a href="https://github.com/ruco-ai/flowdeck" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://github.com/ruco-ai/mdblu" target="_blank" rel="noopener">mdblu</a>
+    <a href="https://github.com/ruco-ai/flowdeck/issues" target="_blank" rel="noopener">Issues</a>
+  </div>
+</footer>
+
+</body>
+</html>
