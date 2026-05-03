@@ -135,6 +135,12 @@ async function scaffoldTemplates(destDir: string, cwd: string): Promise<string> 
 }
 
 // -- main =====================================================================
+if (subcmd === '--version' || subcmd === '-v') {
+  const pkg = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf8'))
+  console.log(pkg.version)
+  process.exit(0)
+}
+
 if (!subcmd || subcmd === '--help' || subcmd === '-h') {
   console.log(`Usage: flowdeck <command> [options]
 
@@ -207,7 +213,7 @@ Each folder under \`.flowdeck/\` is a work area. Each has its own \`TODO.md\`.
 - When in doubt, ask in \`## HUMAN\` rather than assuming
 `)
 
-  writeFileSync(join(fd, 'TODO.md'), `\
+  writeFileSync(join(fd, 'TODO.md.template'), `\
 # flowdeck
 
 > Human↔AI collaboration via \`TODO.md\` files.
@@ -225,7 +231,7 @@ Each folder under \`.flowdeck/\` is a work area. Each has its own \`TODO.md\`.
 `)
 
   writeFileSync(join(fd, 'start', 'TODO.md'), `\
-# start
+# Start
 
 > Your first work area. Add tasks for Claude under \`## BOT\`, tasks for yourself under \`## HUMAN\`.
 > Notes on a task go on the line below, indented with \`>\`.
@@ -233,7 +239,33 @@ Each folder under \`.flowdeck/\` is a work area. Each has its own \`TODO.md\`.
 
 ## BOT
 
+### TODO
+
+- [ ] Example task for BOT
+  > Add notes here
+
+#### STATUS
+
+- Not started
+
+#### COMMENTS
+
+- Add any relevant comments
+
 ## HUMAN
+
+### TODO
+
+- [ ] Example task for HUMAN
+  > Add notes here
+
+#### STATUS
+
+- Not started
+
+#### COMMENTS
+
+- Add any relevant comments
 `)
 
   writeFileSync(join(fd, '.flowdeckignore'), `\
@@ -250,7 +282,7 @@ dist/
 
   console.log(`✓ .flowdeck/ initialized
   AGENT.md           — instructions for Claude
-  TODO.md            — onboarding and project-level tasks
+  TODO.md.template   — onboarding reference (not scanned by agents)
   start/TODO.md      — first work area
   templates/         — mdblu templates (source: ${templateSource})
   .flowdeckignore
