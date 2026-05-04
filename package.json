@@ -4,7 +4,8 @@
   "description": "Human↔AI collaboration via TODO.md files and git commits",
   "type": "module",
   "files": [
-    "dist"
+    "dist",
+    "scaffold"
   ],
   "bin": {
     "flowdeck": "dist/cli.js"

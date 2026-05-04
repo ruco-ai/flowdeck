@@ -165,108 +165,13 @@ if (subcmd === 'init') {
     process.exit(1)
   }
 
+  const scaffoldDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'scaffold')
+
   mkdirSync(join(fd, 'start'), { recursive: true })
 
-  writeFileSync(join(fd, 'AGENT.md'), `\
-# Agent Instructions
-
-You are working in a flowdeck project. Human↔AI collaboration happens through \`TODO.md\` files.
-Each folder under \`.flowdeck/\` is a work area. Each has its own \`TODO.md\`.
-
-## What to do on every \`flowdeck send\`
-
-1. Read the diff in this prompt to understand what the human just changed
-2. Scan all \`TODO.md\` files under \`.flowdeck/\` for unchecked \`- [ ]\` items in \`## BOT\` sections
-3. Complete each task — read files, edit code, whatever the task requires
-4. Mark each done task \`- [x]\` and add a short note on the line below (indented with \`>\`)
-5. If you need the human to do something, add \`- [ ]\` items to \`## HUMAN\`
-6. Commit all changes with a short, factual message
-
-## TODO.md format
-
-\`\`\`markdown
-# <topic>
-
-## BOT
-- [x] Completed task
-  > short note on what was done
-- [ ] Pending task
-  > optional context or clarification
-
-## HUMAN
-- [ ] Something that needs human action
-  > why it's needed
-\`\`\`
-
-## Folder structure
-
-- \`.flowdeck/<topic>/\` — a work area or subject
-- \`.flowdeck/<topic>/<subtask>/\` — a subtask within a topic
-- New topic → \`flowdeck open "<name>"\`
-- New subtask → create the subfolder manually or ask the human to
-
-## Rules
-
-- Complete tasks before committing — never commit a half-done task as done
-- Keep notes brief and factual, not conversational
-- Never modify \`## HUMAN\` items already written by the human
-- When in doubt, ask in \`## HUMAN\` rather than assuming
-`)
-
-  writeFileSync(join(fd, 'TODO.md.template'), `\
-# flowdeck
-
-> Human↔AI collaboration via \`TODO.md\` files.
-> \`## BOT\` is Claude's inbox — tasks Claude should complete.
-> \`## HUMAN\` is your inbox — things Claude needs from you.
-> Run \`flowdeck send -m "<what you did>"\` to commit and hand off to Claude, or \`flowdeck send\` to hand off without a new commit.
-
-## BOT
-- [ ] Read \`AGENT.md\` and confirm you're ready
-  > Leave a short note here, then check \`start/TODO.md\`
-
-## HUMAN
-- [ ] Run \`flowdeck send -m "init"\` to start
-  > Claude will read this file, check \`start/TODO.md\`, and get to work
-`)
-
-  writeFileSync(join(fd, 'start', 'TODO.md'), `\
-# Start
-
-> Your first work area. Add tasks for Claude under \`## BOT\`, tasks for yourself under \`## HUMAN\`.
-> Notes on a task go on the line below, indented with \`>\`.
-> For a new subject, create a new folder under \`.flowdeck/\`. For a subtask, create a subfolder here.
-
-## BOT
-
-### TODO
-
-- [ ] Example task for BOT
-  > Add notes here
-
-#### STATUS
-
-- Not started
-
-#### COMMENTS
-
-- Add any relevant comments
-
-## HUMAN
-
-### TODO
-
-- [ ] Example task for HUMAN
-  > Add notes here
-
-#### STATUS
-
-- Not started
-
-#### COMMENTS
-
-- Add any relevant comments
-`)
+  writeFileSync(join(fd, 'AGENT.md'), readFileSync(join(scaffoldDir, 'AGENT.md.flowdeck'), 'utf8'))
+  writeFileSync(join(fd, 'TODO.md.template'), readFileSync(join(scaffoldDir, 'TODO.md.flowdeck'), 'utf8'))
+  writeFileSync(join(fd, 'start', 'TODO.md'), readFileSync(join(scaffoldDir, 'start', 'TODO.md.flowdeck'), 'utf8'))
 
   writeFileSync(join(fd, '.flowdeckignore'), `\
 node_modules/
