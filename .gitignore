@@ -6,5 +6,7 @@
 .env
 .flowdeck
 .claude
+!scaffold/.claude
+!scaffold/.claude/**
 .venv
 node_modules

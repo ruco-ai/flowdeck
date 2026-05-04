@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { dirname, join } from 'node:path'
+import { basename, dirname, join, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execSync, spawn } from 'node:child_process'
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from 'node:fs'
@@ -21,7 +21,44 @@ async function sendCommand(args: string[]): Promise<void> {
     i++
   }
 
-  const cwd = process.env.FLOWDECK_ROOT ?? process.cwd()
+  const invocationDir = process.cwd()
+
+  // Derive project root (cwd) and which card to focus on, in priority order:
+  // 1. invocationDir is inside .flowdeck/<col>/ → focusCard from path
+  // 2. FLOWDECK_ROOT is set → use it, still check for .flowdeck in invocationDir
+  // 3. Walk up from invocationDir to find .flowdeck/, match basename to a column
+  // 4. No match → full deck scan
+  let cwd: string
+  let focusCard: string | null = null
+
+  const partsForFd = invocationDir.split(sep)
+  const fdIdx = partsForFd.lastIndexOf('.flowdeck')
+
+  if (fdIdx !== -1) {
+    cwd = process.env.FLOWDECK_ROOT ?? (partsForFd.slice(0, fdIdx).join(sep) || sep)
+    focusCard = partsForFd.slice(fdIdx).concat('TODO.md').join(sep)
+  } else if (process.env.FLOWDECK_ROOT) {
+    cwd = process.env.FLOWDECK_ROOT
+  } else {
+    cwd = invocationDir
+  }
+
+  // Basename heuristic: walk up to find .flowdeck/, check if <basename(cwd)>/TODO.md exists
+  if (!focusCard) {
+    let searchDir = invocationDir
+    while (true) {
+      if (existsSync(join(searchDir, '.flowdeck'))) {
+        cwd = searchDir
+        const colName = basename(invocationDir)
+        const cardPath = join(searchDir, '.flowdeck', colName, 'TODO.md')
+        if (existsSync(cardPath)) focusCard = join('.flowdeck', colName, 'TODO.md')
+        break
+      }
+      const parent = dirname(searchDir)
+      if (parent === searchDir) break
+      searchDir = parent
+    }
+  }
 
   if (message) {
     try {
@@ -44,9 +81,37 @@ async function sendCommand(args: string[]): Promise<void> {
   try { diff = execSync('git show HEAD --stat', { cwd, encoding: 'utf8', stdio: 'pipe' }).trim() } catch {}
 
   const commitLine = message ? `The human just committed: "${message}"\n\n` : ''
-  const prompt = agentMd
-    ? `${agentMd}\n\n---\n\n${commitLine}Changed files:\n${diff || '(none)'}`
-    : `${commitLine}Changed files:\n${diff || '(none)'}\n\nProcess any unchecked BOT tasks in .flowdeck/ TODO.md files, mark done, commit.`
+
+  let claudeArgs: string[]
+  if (focusCard) {
+    const cardPath = join(cwd, focusCard)
+    const cardContent = existsSync(cardPath) ? readFileSync(cardPath, 'utf8').trim() : ''
+    const userPrompt = `${commitLine}Do the following steps in order:
+1. The human played the card at \`${cardPath}\`. Its current content is below — use it as the source of truth, do not re-read it from disk.
+2. Find every unchecked \`- [ ]\` item under \`## BOT\` and complete it (read files, edit code, run commands as needed).
+3. Edit \`${cardPath}\` to mark each completed item \`- [x]\` with a one-line note indented with \`>\`.
+4. Run \`git add -A && git commit -m "<short description>"\` to commit.
+Do not glob, search, or read any other TODO.md files.
+
+--- card content ---
+${cardContent}`
+    claudeArgs = [
+      '-p', userPrompt,
+      '--dangerously-skip-permissions',
+      '--output-format', 'stream-json',
+      '--verbose',
+    ]
+  } else {
+    const prompt = agentMd
+      ? `${agentMd}\n\n---\n\n${commitLine}Changed files:\n${diff || '(none)'}`
+      : `${commitLine}Changed files:\n${diff || '(none)'}\n\nYou are a flowdeck agent. The deck is \`.flowdeck/\` — columns are folders, cards are \`TODO.md\` files. Pick the highest-priority card with unchecked \`- [ ]\` items under \`## BOT\`, complete those tasks, mark them done, and commit. Work one card at a time.`
+    claudeArgs = [
+      '-p', prompt,
+      '--dangerously-skip-permissions',
+      '--output-format', 'stream-json',
+      '--verbose',
+    ]
+  }
 
   const frames = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏']
   let frame = 0
@@ -56,12 +121,7 @@ async function sendCommand(args: string[]): Promise<void> {
   }, 80)
   const clear = () => { clearInterval(spin); process.stdout.write('\r' + ' '.repeat(label.length + 4) + '\r') }
 
-  const child = spawn('claude', [
-    '-p', prompt,
-    '--dangerously-skip-permissions',
-    '--output-format', 'stream-json',
-    '--verbose',
-  ], { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
+  const child = spawn('claude', claudeArgs, { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
 
   let buf = ''
   child.stdout!.on('data', (chunk: Buffer) => {
@@ -94,6 +154,66 @@ async function sendCommand(args: string[]): Promise<void> {
   const code = await new Promise<number>(res => child.on('close', c => res(c ?? 0)))
   clear()
   if (code !== 0) process.exit(code)
+}
+
+// -- add command: create a new column + card ----------------------------------
+function addCommand(args: string[]): void {
+  const column = args[0]
+  if (!column) {
+    console.error('Usage: flowdeck add <column> [title]')
+    process.exit(1)
+  }
+
+  const cwd = process.env.FLOWDECK_ROOT ?? process.cwd()
+  const columnDir = join(cwd, '.flowdeck', column)
+  const cardPath = join(columnDir, 'TODO.md')
+
+  if (existsSync(cardPath)) {
+    console.error(`Error: card already exists at .flowdeck/${column}/TODO.md`)
+    process.exit(1)
+  }
+
+  mkdirSync(columnDir, { recursive: true })
+
+  const title = args.slice(1).join(' ') || column
+  writeFileSync(cardPath, `# ${title}\n\n## BOT\n\n- [ ] \n\n## HUMAN\n\n#### COMMENTS\n\n`)
+  console.log(`✓ Created .flowdeck/${column}/TODO.md`)
+}
+
+// -- upgrade command: append a task to an existing card -----------------------
+function upgradeCommand(args: string[]): void {
+  const column = args[0]
+  const task = args.slice(1).join(' ')
+
+  if (!column || !task) {
+    console.error('Usage: flowdeck upgrade <column> <task>')
+    process.exit(1)
+  }
+
+  const cwd = process.env.FLOWDECK_ROOT ?? process.cwd()
+  const cardPath = join(cwd, '.flowdeck', column, 'TODO.md')
+
+  if (!existsSync(cardPath)) {
+    console.error(`Error: no card at .flowdeck/${column}/TODO.md`)
+    process.exit(1)
+  }
+
+  const lines = readFileSync(cardPath, 'utf8').split('\n')
+  const botIdx = lines.findIndex(l => l.trim() === '## BOT')
+
+  if (botIdx === -1) {
+    writeFileSync(cardPath, lines.join('\n').trimEnd() + `\n\n## BOT\n\n- [ ] ${task}\n`)
+  } else {
+    let insertAt = lines.length
+    for (let i = botIdx + 1; i < lines.length; i++) {
+      if (/^## /.test(lines[i])) { insertAt = i; break }
+    }
+    while (insertAt > botIdx + 1 && lines[insertAt - 1].trim() === '') insertAt--
+    lines.splice(insertAt, 0, `- [ ] ${task}`, '')
+    writeFileSync(cardPath, lines.join('\n'))
+  }
+
+  console.log(`✓ Added task to .flowdeck/${column}/TODO.md`)
 }
 
 // -- mdblu template resolution ------------------------------------------------
@@ -145,13 +265,18 @@ if (!subcmd || subcmd === '--help' || subcmd === '-h') {
   console.log(`Usage: flowdeck <command> [options]
 
 Commands:
-  init                   Create .flowdeck/ scaffold with templates
-  send [-m "<message>"]  Stage + commit (if -m given), then hand off to Claude
+  init                        Create .flowdeck/ scaffold with templates
+  play [-m "<message>"]       Stage + commit (if -m given), then hand off to Claude
+  send [-m "<message>"]       Alias for play
+  add <column> [title]        Create a new column + card
+  upgrade <column> <task>     Append a task to an existing card
 
 Examples:
   flowdeck init
-  flowdeck send -m "add stripe webhook"
-  flowdeck send
+  flowdeck play -m "add stripe webhook"
+  flowdeck play
+  flowdeck add payments "Stripe integration"
+  flowdeck upgrade payments "add refund flow"
 `)
   process.exit(0)
 }
@@ -181,19 +306,31 @@ dist/
 .env
 `)
 
+  const scaffoldCommandsDir = join(scaffoldDir, '.claude', 'commands')
+  const projectCommandsDir = join(cwd, '.claude', 'commands')
+  mkdirSync(projectCommandsDir, { recursive: true })
+  for (const f of readdirSync(scaffoldCommandsDir)) {
+    writeFileSync(join(projectCommandsDir, f), readFileSync(join(scaffoldCommandsDir, f)))
+  }
+
   process.stdout.write('  fetching mdblu templates…')
   const templateSource = await scaffoldTemplates(join(fd, 'templates'), cwd)
   process.stdout.write(`\r✓ templates — ${templateSource}\n`)
 
   console.log(`✓ .flowdeck/ initialized
-  AGENT.md           — instructions for Claude
-  TODO.md.template   — onboarding reference (not scanned by agents)
-  start/TODO.md      — first work area
-  templates/         — mdblu templates (source: ${templateSource})
+  AGENT.md               — instructions for Claude
+  TODO.md.template       — onboarding reference (not scanned by agents)
+  start/TODO.md          — first work area
+  templates/             — mdblu templates (source: ${templateSource})
   .flowdeckignore
+  .claude/commands/      — slash commands (play-card, add-card, upgrade-card)
 `)
-} else if (subcmd === 'send') {
+} else if (subcmd === 'play' || subcmd === 'send') {
   await sendCommand(rest)
+} else if (subcmd === 'add') {
+  addCommand(rest)
+} else if (subcmd === 'upgrade') {
+  upgradeCommand(rest)
 } else {
   console.error(`Unknown command: ${subcmd}`)
   process.exit(1)
