@@ -23,8 +23,8 @@ This creates a `.flowdeck/` scaffold:
 
 ```
 .flowdeck/
-  AGENT.md          ← instructions Claude reads on every send
-  TODO.md           ← project-level tasks
+  AGENT.md          ← instructions Claude reads on every play
+  TODO.md.template  ← onboarding reference (not scanned by agents)
   start/
     TODO.md         ← your first work area
   templates/        ← mdblu templates (SPEC, MISSION, ADR, …)
@@ -41,10 +41,10 @@ Add a task for Claude in `.flowdeck/start/TODO.md`:
 Then hand off:
 
 ```bash
-flowdeck send -m "added first task"
+flowdeck play -m "added first task"
 ```
 
-Claude reads your `AGENT.md`, sees the diff, finds the unchecked task, does the work, marks it done, and commits.
+Claude reads the card, completes the unchecked tasks, marks them done, and commits.
 
 ## How it works
 
@@ -66,21 +66,27 @@ Every folder under `.flowdeck/` has a `TODO.md` with two sections:
 - **`## BOT`** — Claude's inbox. Claude completes these and marks them `[x]`.
 - **`## HUMAN`** — Your inbox. Claude adds items here when it needs you to act.
 
-### `flowdeck send` is the handoff
+### `flowdeck play` is the handoff
 
 ```bash
-flowdeck send -m "describe what you just did"
+flowdeck play -m "describe what you just did"
 # stages all changes, commits, then hands off to Claude
 
-flowdeck send
+flowdeck play
 # no commit — hands off with the current diff
 ```
 
-Claude picks up where you left off, works through the `## BOT` tasks, and commits its changes.
+Claude picks up the focused card, works through the `## BOT` tasks, and commits its changes.
+
+**Card focus** — `flowdeck play` resolves which card to work on in this order:
+
+1. You're inside `.flowdeck/<column>/` → that column's card
+2. Your current directory name matches a column name → that column's card
+3. No match → Claude scans the whole deck and picks the highest-priority card
 
 ### AGENT.md is the protocol
 
-`.flowdeck/AGENT.md` tells Claude how to behave in your project. Edit it to change how Claude works — what it focuses on, what it avoids, how it structures commits. The default is a sensible starting point.
+`.flowdeck/AGENT.md` tells Claude how to behave in your project. Edit it to change what Claude focuses on, what it avoids, and how it structures commits.
 
 ### Templates
 
@@ -96,11 +102,26 @@ mdblu get --all --output .flowdeck/templates/
 | Command | What it does |
 |---------|-------------|
 | `flowdeck init` | Create `.flowdeck/` scaffold in the current directory |
-| `flowdeck send [-m "msg"]` | Commit (if `-m` given) and hand off to Claude |
+| `flowdeck play [-m "msg"]` | Commit (if `-m` given) and hand off to Claude |
+| `flowdeck add <column> [title]` | Create a new column and card |
+| `flowdeck upgrade <column> <task>` | Append a BOT task to an existing card |
+
+`flowdeck send` is an alias for `flowdeck play`.
+
+### Slash commands
+
+After `flowdeck init`, your project gets three Claude Code slash commands in `.claude/commands/`:
+
+| Slash command | What it does |
+|---------------|-------------|
+| `/play-card` | Process unchecked BOT tasks in the deck, mark done, commit |
+| `/add-card <column> [tasks]` | Create a new column and card |
+| `/upgrade-card <column> <task>` | Append a task or note to an existing card |
 
 ## Folder structure
 
 New subject → new folder under `.flowdeck/`:
+
 ```
 .flowdeck/
   payments/
@@ -111,7 +132,10 @@ New subject → new folder under `.flowdeck/`:
     TODO.md
 ```
 
-Claude manages the structure based on your `AGENT.md` instructions.
+```bash
+flowdeck add payments "Stripe integration"
+flowdeck add payments/stripe-webhook
+```
 
 ## License
 
