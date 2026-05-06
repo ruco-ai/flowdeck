@@ -23,8 +23,8 @@ This creates a `.flowdeck/` scaffold:
 
 ```
 .flowdeck/
-  AGENT.md          ← instructions Claude reads on every play
-  TODO.md.template  ← onboarding reference (not scanned by agents)
+  AGENT.md          ← project context Claude reads on every play (edit this)
+  TODO.md.template  ← card format reference
   start/
     TODO.md         ← your first work area
   templates/        ← mdblu templates (SPEC, MISSION, ADR, …)
@@ -41,16 +41,18 @@ Add a task for Claude in `.flowdeck/start/TODO.md`:
 Then hand off:
 
 ```bash
-flowdeck play -m "added first task"
-```
+flowdeck play start
+# plays the "start" card — Claude reads it, completes the BOT tasks, marks them done, commits
 
-Claude reads the card, completes the unchecked tasks, marks them done, and commits.
+flowdeck turn
+# passes the full deck to Claude — Claude decides what to play, discard, or combine
+```
 
 ## How it works
 
 ### TODO.md is the shared board
 
-Every folder under `.flowdeck/` has a `TODO.md` with two sections:
+Every folder under `.flowdeck/` is a **column**. Each column has a `TODO.md` **card** with two sections:
 
 ```markdown
 ## BOT
@@ -66,27 +68,32 @@ Every folder under `.flowdeck/` has a `TODO.md` with two sections:
 - **`## BOT`** — Claude's inbox. Claude completes these and marks them `[x]`.
 - **`## HUMAN`** — Your inbox. Claude adds items here when it needs you to act.
 
-### `flowdeck play` is the handoff
+### `flowdeck play <slug>` — single card
 
 ```bash
-flowdeck play -m "describe what you just did"
-# stages all changes, commits, then hands off to Claude
-
-flowdeck play
-# no commit — hands off with the current diff
+flowdeck play payments
+# plays .flowdeck/payments/TODO.md exactly — no scanning
 ```
 
-Claude picks up the focused card, works through the `## BOT` tasks, and commits its changes.
+Claude reads the card, works through the `## BOT` tasks, marks them done, and commits.
 
-**Card focus** — `flowdeck play` resolves which card to work on in this order:
+### `flowdeck turn` — full hand
 
-1. You're inside `.flowdeck/<column>/` → that column's card
-2. Your current directory name matches a column name → that column's card
-3. No match → Claude scans the whole deck and picks the highest-priority card
+```bash
+flowdeck turn
+```
 
-### AGENT.md is the protocol
+Passes every card with open `## BOT` items to Claude in one call. Claude:
 
-`.flowdeck/AGENT.md` tells Claude how to behave in your project. Edit it to change what Claude focuses on, what it avoids, and how it structures commits.
+1. **Assesses the hand** — decides play order, flags duplicates, identifies cards that can be combined
+2. **Discards** obsolete or redundant cards (moves items to `## DISCARDED`, keeps the file)
+3. **Combines** complementary cards into a single efficient pass
+4. **Executes** — works through all cards in chosen order, committing after each
+5. **Docs pass** — updates project docs, AGENT.md insights, and cross-card notes holistically
+
+### AGENT.md is the project context
+
+`.flowdeck/AGENT.md` is the first thing Claude reads on every `play` and `turn`. Keep it updated with architecture notes, preferences, and current priorities. It's yours to maintain — flowdeck never overwrites it after `init`.
 
 ### Templates
 
@@ -102,19 +109,19 @@ mdblu get --all --output .flowdeck/templates/
 | Command | What it does |
 |---------|-------------|
 | `flowdeck init` | Create `.flowdeck/` scaffold in the current directory |
-| `flowdeck play [-m "msg"]` | Commit (if `-m` given) and hand off to Claude |
+| `flowdeck play <slug>` | Play a single card by column name |
+| `flowdeck turn` | Pass the full hand to Claude (prioritize, discard, combine, execute, document) |
 | `flowdeck add <column> [title]` | Create a new column and card |
 | `flowdeck upgrade <column> <task>` | Append a BOT task to an existing card |
 
-`flowdeck send` is an alias for `flowdeck play`.
-
 ### Slash commands
 
-After `flowdeck init`, your project gets three Claude Code slash commands in `.claude/commands/`:
+After `flowdeck init`, your project gets slash commands in `.claude/commands/`:
 
 | Slash command | What it does |
 |---------------|-------------|
-| `/play-card` | Process unchecked BOT tasks in the deck, mark done, commit |
+| `/play-card <slug>` | Play a single card by name |
+| `/turn` | Play the full hand (assess, discard, combine, execute, document) |
 | `/add-card <column> [tasks]` | Create a new column and card |
 | `/upgrade-card <column> <task>` | Append a task or note to an existing card |
 

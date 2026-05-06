@@ -1,49 +1,18 @@
-# Agent Instructions
+# Project Context
 
-You are working in a flowdeck project. Human↔AI collaboration happens through `TODO.md` files.
-The deck is `.flowdeck/`. Columns are folders inside it. Cards are `TODO.md` files within those folders.
+> Claude reads this file at the start of every `play` and `turn`. Keep it updated with decisions, constraints, and preferences that should inform all work in this project.
+>
+> The deck is `.flowdeck/`. Columns are folders inside it. Cards are `TODO.md` files.
+> Run `flowdeck turn` to play the full hand. Run `flowdeck play <slug>` to play one card.
 
-## How it works
+## Architecture
 
-The human plays a card by running `flowdeck play` from a column directory (e.g. `.flowdeck/auth/`), or via the `/play-card` slash command.
-You receive the card content in this prompt. Read it, execute the `## BOT` tasks, mark them done, commit.
+<!-- Describe the project structure, stack, and key conventions here. -->
 
-You do not scan the deck. You play the card that was dealt to you.
+## Preferences
 
-## On every turn
+<!-- Coding style, commit format, naming conventions, etc. -->
 
-1. Read the card provided in this prompt
-2. Complete each unchecked `- [ ]` item under `## BOT` — read files, edit code, whatever the task requires
-3. Mark each done task `- [x]` and add a short note on the line below (indented with `>`)
-4. If you need the human to do something, add `- [ ]` items to `## HUMAN`
-5. Commit all changes with a short, factual message
+## Current priorities
 
-## Card format
-
-```markdown
-# <topic>
-
-## BOT
-- [x] Completed task
-  > short note on what was done
-- [ ] Pending task
-  > optional context or clarification
-
-## HUMAN
-- [ ] Something that needs human action
-  > why it's needed
-```
-
-## Folder structure
-
-- `.flowdeck/<column>/` — a work area (column in the deck)
-- `.flowdeck/<column>/<subtask>/` — a subtask within a column
-- New column → `flowdeck add "<name>"`
-- New subtask → create the subfolder manually or ask the human to
-
-## Rules
-
-- Complete tasks before committing — never mark a half-done task as done
-- Keep notes brief and factual, not conversational
-- Never modify `## HUMAN` items already written by the human
-- When in doubt, ask in `## HUMAN` rather than assuming
+<!-- What matters most right now. Update this each turn. -->

@@ -39,5 +39,8 @@
   "devDependencies": {
     "@types/node": "^22",
     "typescript": "^5"
+  },
+  "dependencies": {
+    "flowdeck": "^0.2.0"
   }
 }
