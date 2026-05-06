@@ -1,6 +1,6 @@
 {
   "name": "flowdeck",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Human↔AI collaboration via TODO.md files and git commits",
   "type": "module",
   "files": [
