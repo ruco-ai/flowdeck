@@ -208,20 +208,20 @@ function addCommand(args) {
     const columnDir = join(root, '.flowdeck', column);
     const cardPath = join(columnDir, 'TODO.md');
     if (existsSync(cardPath)) {
-        console.error(`Error: card already exists at .flowdeck/${column}/TODO.md`);
-        process.exit(1);
+        console.log(`Card already exists at .flowdeck/${column}/TODO.md — nothing to do.`);
+        return;
     }
     mkdirSync(columnDir, { recursive: true });
     const title = args.slice(1).join(' ') || column;
     writeFileSync(cardPath, `# ${title}\n\n## BOT\n\n- [ ] \n\n## HUMAN\n\n#### COMMENTS\n\n`);
     console.log(`✓ Created .flowdeck/${column}/TODO.md`);
 }
-// -- upgrade command: append a task to an existing card -----------------------
-function upgradeCommand(args) {
+// -- append command: append a task to an existing card ------------------------
+function appendCommand(args) {
     const column = args[0];
     const task = args.slice(1).join(' ');
     if (!column || !task) {
-        console.error('Usage: flowdeck upgrade <column> <task>');
+        console.error('Usage: flowdeck append <column> <task>');
         process.exit(1);
     }
     const root = findProjectRoot(process.cwd()) ?? (process.env.FLOWDECK_ROOT ?? process.cwd());
@@ -230,23 +230,51 @@ function upgradeCommand(args) {
         console.error(`Error: no card at .flowdeck/${column}/TODO.md`);
         process.exit(1);
     }
+    const isQuestion = task.trimEnd().endsWith('?');
     const lines = readFileSync(cardPath, 'utf8').split('\n');
-    const botIdx = lines.findIndex(l => l.trim() === '## BOT');
-    if (botIdx === -1) {
-        writeFileSync(cardPath, lines.join('\n').trimEnd() + `\n\n## BOT\n\n- [ ] ${task}\n`);
+    if (isQuestion) {
+        const humanIdx = lines.findIndex(l => l.trim() === '## HUMAN');
+        const entry = [`- [ ] ${task}`, `  > _answer:_`, ''];
+        if (humanIdx === -1) {
+            const content = lines.join('\n').trimEnd();
+            writeFileSync(cardPath, content + `\n\n## HUMAN\n\n${entry.join('\n')}`);
+        }
+        else {
+            let insertAt = humanIdx + 1;
+            while (insertAt < lines.length && lines[insertAt].trim() === '')
+                insertAt++;
+            lines.splice(insertAt, 0, ...entry);
+            writeFileSync(cardPath, lines.join('\n'));
+        }
     }
     else {
-        let insertAt = lines.length;
-        for (let i = botIdx + 1; i < lines.length; i++) {
-            if (/^## /.test(lines[i])) {
-                insertAt = i;
-                break;
+        const botIdx = lines.findIndex(l => l.trim() === '## BOT');
+        if (botIdx === -1) {
+            writeFileSync(cardPath, lines.join('\n').trimEnd() + `\n\n## BOT\n\n- [ ] ${task}\n`);
+        }
+        else {
+            // find bounds of ## BOT section
+            let sectionEnd = lines.length;
+            for (let i = botIdx + 1; i < lines.length; i++) {
+                if (/^## /.test(lines[i])) {
+                    sectionEnd = i;
+                    break;
+                }
+            }
+            // replace first empty task if present; otherwise insert at end of section
+            const emptyIdx = lines.slice(botIdx + 1, sectionEnd).findIndex(l => /^- \[ \]\s*$/.test(l));
+            if (emptyIdx !== -1) {
+                lines[botIdx + 1 + emptyIdx] = `- [ ] ${task}`;
+                writeFileSync(cardPath, lines.join('\n'));
+            }
+            else {
+                let insertAt = sectionEnd;
+                while (insertAt > botIdx + 1 && lines[insertAt - 1].trim() === '')
+                    insertAt--;
+                lines.splice(insertAt, 0, `- [ ] ${task}`, '');
+                writeFileSync(cardPath, lines.join('\n'));
             }
         }
-        while (insertAt > botIdx + 1 && lines[insertAt - 1].trim() === '')
-            insertAt--;
-        lines.splice(insertAt, 0, `- [ ] ${task}`, '');
-        writeFileSync(cardPath, lines.join('\n'));
     }
     console.log(`✓ Added task to .flowdeck/${column}/TODO.md`);
 }
@@ -299,14 +327,14 @@ Commands:
   play <card-slug>            Play a single card by name
   turn                        Pass the full deck hand to Claude (prioritize, discard, combine, execute)
   add <column> [title]        Create a new column + card
-  upgrade <column> <task>     Append a task to an existing card
+  append <column> <task>      Append a task to an existing card
 
 Examples:
   flowdeck init
   flowdeck play payments
   flowdeck turn
   flowdeck add payments "Stripe integration"
-  flowdeck upgrade payments "add refund flow"
+  flowdeck append payments "add refund flow"
 `);
     process.exit(0);
 }
@@ -356,8 +384,8 @@ else if (subcmd === 'turn') {
 else if (subcmd === 'add') {
     addCommand(rest);
 }
-else if (subcmd === 'upgrade') {
-    upgradeCommand(rest);
+else if (subcmd === 'append' || subcmd === 'upgrade') {
+    appendCommand(rest);
 }
 else {
     console.error(`Unknown command: ${subcmd}`);
