@@ -216,6 +216,45 @@ function addCommand(args) {
     writeFileSync(cardPath, `# ${title}\n\n## BOT\n\n- [ ] \n\n## HUMAN\n\n#### COMMENTS\n\n`);
     console.log(`✓ Created .flowdeck/${column}/TODO.md`);
 }
+// -- flash command: review a card and add comments without executing ----------
+async function flashCommand(args) {
+    const slug = args[0];
+    if (!slug) {
+        console.error('Usage: flowdeck flash <card-slug>');
+        process.exit(1);
+    }
+    const root = findProjectRoot(process.cwd());
+    if (!root) {
+        console.error('Error: no .flowdeck/ found in this directory or any parent');
+        process.exit(1);
+    }
+    const cardPath = join(root, '.flowdeck', slug, 'TODO.md');
+    if (!existsSync(cardPath)) {
+        console.error(`Error: no card at .flowdeck/${slug}/TODO.md`);
+        process.exit(1);
+    }
+    const cardContent = readFileSync(cardPath, 'utf8').trim();
+    const agentMd = readAgentMd(root);
+    const prompt = `${agentMd ? agentMd + '\n\n---\n\n' : ''}You are in FLASH mode. Review the card at \`${cardPath}\`. Its current content is below — use it as source of truth, do not re-read it from disk.
+
+DO NOT execute any tasks. Your job is to annotate the card with observations.
+
+1. Under \`## HUMAN\` → \`#### COMMENTS\`, write your analysis — what each BOT task involves, dependencies, risks, open questions
+2. For anything that needs a human decision before work can start, add \`- [ ] <question>?\` items under \`## HUMAN\` (each followed by \`  > _answer:_\`)
+3. Leave all \`- [ ]\` BOT items untouched — do not execute, do not check off
+4. Commit: \`git add -A && git commit -m "deck: flash ${slug}"\`
+
+--- card: .flowdeck/${slug}/TODO.md ---
+${cardContent}`;
+    const code = await spawnClaude([
+        '-p', prompt,
+        '--dangerously-skip-permissions',
+        '--output-format', 'stream-json',
+        '--verbose',
+    ], root);
+    if (code !== 0)
+        process.exit(code);
+}
 // -- append command: append a task to an existing card ------------------------
 function appendCommand(args) {
     const column = args[0];
@@ -325,6 +364,7 @@ if (!subcmd || subcmd === '--help' || subcmd === '-h') {
 Commands:
   init                        Create .flowdeck/ scaffold with templates
   play <card-slug>            Play a single card by name
+  flash <card-slug>           Review a card and add comments without executing tasks
   turn                        Pass the full deck hand to Claude (prioritize, discard, combine, execute)
   add <column> [title]        Create a new column + card
   append <column> <task>      Append a task to an existing card
@@ -332,6 +372,7 @@ Commands:
 Examples:
   flowdeck init
   flowdeck play payments
+  flowdeck flash payments
   flowdeck turn
   flowdeck add payments "Stripe integration"
   flowdeck append payments "add refund flow"
@@ -377,6 +418,9 @@ dist/
 }
 else if (subcmd === 'play') {
     await playCommand(rest);
+}
+else if (subcmd === 'flash') {
+    await flashCommand(rest);
 }
 else if (subcmd === 'turn') {
     await turnCommand();
