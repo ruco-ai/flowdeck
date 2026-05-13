@@ -4,6 +4,8 @@
 
 - [ ] please check if turn command works on any cards under  .flowdeck scafold
 - [ ] the faillure was under sitegrow project. when I did 'flowdeck turn' you said 'no open cards', but I have one: sitegrow.flowdeck/milestones/m6
+- [ ] FYI: the sitegrow card at  is nested two levels
+
 
 
 ## HUMAN
@@ -27,13 +29,14 @@ The task is to verify `flowdeck turn` works correctly when run against cards in 
 - The path `sitegrow.flowdeck/milestones/m6` is ambiguous. Two interpretations:
   1. **Nested card (most likely root cause):** deck at `.flowdeck/`, card at `.flowdeck/milestones/m6/TODO.md` — two levels deep. `collectOpenCards` scans one level (`readdirSync('.flowdeck')` → `<subdir>/TODO.md`), so it would visit `milestones/` and look for `milestones/TODO.md`, completely missing `milestones/m6/TODO.md`. Result: "no open cards".
   2. **Non-standard deck folder name:** deck is at `sitegrow.flowdeck/` rather than `.flowdeck/`. `collectOpenCards` hardcodes `.flowdeck` and would always report empty for this project.
-- Fix paths diverge depending on which it is: recursive scan (or two-level scan) for case 1; configurable deck path for case 2.
+- **BOT item 3 ("nested two levels") confirms case 1.** The card IS two levels deep under `.flowdeck/`. Root cause is confirmed: `collectOpenCards` only does a one-level scan, so `milestones/m6/TODO.md` is invisible to `turn`.
+- Fix required: scan two levels deep (or recursively), not just one. A bounded two-level scan is safer — full recursion would match deeply-nested files that are not cards.
 - Either way, the first BOT item ("check scaffold cards") is a red herring — the real failure is structural, not scaffold-specific.
 
 - [ ] Was a specific failure observed (e.g. `turn` crashing, picking up wrong cards, skipping cards)? What was the symptom?
   > _answer:_
 
-- [ ] In the sitegrow project, is the card physically at `.flowdeck/milestones/m6/TODO.md` (two directory levels under `.flowdeck/`), or is the deck folder itself named differently (e.g. `sitegrow.flowdeck/`)?
+- [ ] In the sitegrow project, is the deck folder named `.flowdeck/` (standard) or `sitegrow.flowdeck/`? BOT item 3 confirms two-level nesting, but the deck folder name in item 2 (`sitegrow.flowdeck/milestones/m6`) is still ambiguous — could just be a path label in the note, not the literal folder name.
   > _answer:_
 
 - [ ] Should the scaffold's `start/TODO.md.flowdeck` have no open BOT tasks (so `turn` on a fresh project says "deck is clear") rather than a placeholder?
