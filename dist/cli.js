@@ -51,12 +51,22 @@ function collectOpenCards(root) {
             continue;
         if (ignore.has(entry.name))
             continue;
-        const cardPath = join(fdDir, entry.name, 'TODO.md');
-        if (!existsSync(cardPath))
-            continue;
-        const content = readFileSync(cardPath, 'utf8');
-        if (hasOpenBotItems(content))
-            cards.push({ slug: entry.name, path: cardPath, content });
+        const level1Path = join(fdDir, entry.name, 'TODO.md');
+        if (existsSync(level1Path)) {
+            const content = readFileSync(level1Path, 'utf8');
+            if (hasOpenBotItems(content))
+                cards.push({ slug: entry.name, path: level1Path, content });
+        }
+        for (const sub of readdirSync(join(fdDir, entry.name), { withFileTypes: true })) {
+            if (!sub.isDirectory())
+                continue;
+            const level2Path = join(fdDir, entry.name, sub.name, 'TODO.md');
+            if (!existsSync(level2Path))
+                continue;
+            const content = readFileSync(level2Path, 'utf8');
+            if (hasOpenBotItems(content))
+                cards.push({ slug: `${entry.name}/${sub.name}`, path: level2Path, content });
+        }
     }
     return cards;
 }

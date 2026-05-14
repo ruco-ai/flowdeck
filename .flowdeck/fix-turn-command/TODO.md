@@ -2,9 +2,12 @@
 
 ## BOT
 
-- [ ] please check if turn command works on any cards under  .flowdeck scafold
-- [ ] the faillure was under sitegrow project. when I did 'flowdeck turn' you said 'no open cards', but I have one: sitegrow.flowdeck/milestones/m6
-- [ ] FYI: the sitegrow card at  is nested two levels
+- [x] please check if turn command works on any cards under  .flowdeck scafold
+  > `collectOpenCards` correctly handles scaffold-format cards (sub-headings under `## BOT` don't break the parser). The real issue was depth, not format.
+- [x] the faillure was under sitegrow project. when I did 'flowdeck turn' you said 'no open cards', but I have one: sitegrow.flowdeck/milestones/m6
+  > Root cause confirmed: `collectOpenCards` only scanned one level deep. Fixed — now scans two levels, so `.flowdeck/<dir>/<subdir>/TODO.md` is collected with slug `<dir>/<subdir>`.
+- [x] FYI: the sitegrow card at  is nested two levels
+  > Confirmed the two-level nesting as the cause. Fix applied in `cli.ts:46–67`.
 
 
 
