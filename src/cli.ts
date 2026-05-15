@@ -251,6 +251,7 @@ function buildPlayPrompt(agentMd: string, cardPath: string, cardContent: string,
 2. Mark each done \`- [x]\` with a one-line note indented with \`>\`
 3. If you need the human to act, add \`- [ ]\` items under \`## HUMAN\`
 4. Commit: \`git add -A && git commit -m "deck: <short description>"\`
+5. Check if any project documents (README, AGENT.md, architecture notes, changelogs) need updating based on the changes you made. If so, update them and commit: \`git add -A && git commit -m "docs: <short description>"\`
 
 Do not scan or read any other TODO.md files.
 
@@ -280,9 +281,9 @@ For each card (or combined set), in your chosen order:
 ## After the hand
 
 Once all cards are played, do a holistic documentation pass:
-- Update any project docs, architecture notes, or cross-card insights that changed across this turn
-- If \`.flowdeck/AGENT.md\` needs updating based on what you learned, update it
-- Final commit: \`git add -A && git commit -m "deck: post-turn docs"\`
+- Check if any project docs (README, architecture notes, changelogs, cross-card insights) need updating based on changes made this turn — update what's out of date, leave the rest untouched
+- Check if \`.flowdeck/AGENT.md\` needs updating based on what you learned — update it if so
+- Final commit (only if anything changed): \`git add -A && git commit -m "docs: post-turn"\`
 
 ## Your hand
 
