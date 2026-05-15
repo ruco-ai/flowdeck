@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, createWriteStream } from 'node:fs';
+import { syncCard } from './github.js';
 const [, , subcmd, ...rest] = process.argv;
 // -- helpers ------------------------------------------------------------------
 function findProjectRoot(from) {
@@ -620,6 +621,37 @@ function appendCommand(args) {
     }
     console.log(`✓ Added task to .flowdeck/${column}/TODO.md`);
 }
+// -- gh-sync command: sync a card to a linked GitHub Issue --------------------
+async function ghSyncCommand(args) {
+    const cardPath = args.find(a => !a.startsWith('-'));
+    if (!cardPath) {
+        console.error('Usage: flowdeck gh-sync <card-file> [--phase <created|bot-done|human-done>] [--dry-run] [--no-create] [--verbose] [--token <token>]');
+        process.exit(1);
+    }
+    if (!existsSync(cardPath)) {
+        console.error(`Error: card file not found: ${cardPath}`);
+        process.exit(1);
+    }
+    const phaseIdx = args.indexOf('--phase');
+    const phaseArg = phaseIdx !== -1 ? args[phaseIdx + 1] : undefined;
+    if (phaseArg !== undefined && !['created', 'bot-done', 'human-done'].includes(phaseArg)) {
+        console.error(`Error: --phase must be one of: created, bot-done, human-done`);
+        process.exit(1);
+    }
+    const tokenIdx = args.indexOf('--token');
+    const tokenArg = tokenIdx !== -1 ? args[tokenIdx + 1] : undefined;
+    const result = await syncCard({
+        cardPath,
+        phase: phaseArg,
+        dryRun: args.includes('--dry-run'),
+        noCreate: args.includes('--no-create'),
+        verbose: args.includes('--verbose'),
+        token: tokenArg,
+    });
+    if (result.action === 'skipped') {
+        console.log('skipped — no github_issue frontmatter in card');
+    }
+}
 // -- main =====================================================================
 if (subcmd === '--version' || subcmd === '-v') {
     const pkg = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf8'));
@@ -637,6 +669,7 @@ Commands:
   turn --serial               Run cards sequentially using the legacy single-agent path
   add <column> [title]        Create a new column + card
   append <column> <task>      Append a task to an existing card
+  gh-sync <card-file>         Sync card state to a linked GitHub Issue
 
 Examples:
   flowdeck init
@@ -647,6 +680,10 @@ Examples:
   flowdeck turn --serial
   flowdeck add payments "Stripe integration"
   flowdeck append payments "add refund flow"
+  flowdeck gh-sync .flowdeck/payments/TODO.md
+  flowdeck gh-sync .flowdeck/payments/TODO.md --phase bot-done
+  flowdeck gh-sync .flowdeck/payments/TODO.md --phase human-done
+  flowdeck gh-sync .flowdeck/payments/TODO.md --dry-run
 `);
     process.exit(0);
 }
@@ -701,6 +738,9 @@ else if (subcmd === 'add') {
 }
 else if (subcmd === 'append' || subcmd === 'upgrade') {
     appendCommand(rest);
+}
+else if (subcmd === 'gh-sync') {
+    await ghSyncCommand(rest);
 }
 else {
     console.error(`Unknown command: ${subcmd}`);
