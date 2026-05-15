@@ -2,6 +2,8 @@
 
 ## BOT
 
+- [ ] One thing worth doing before you close this card: the **sub-card dependency order** block in the HUMAN section has the correct sequencing but it's prose. When you scaffold the five sub-cards, encode the `depends:` headers exactly as specified there — `worktree-lifecycle` first, `orchestrator-prompt` and `terminal-output` parallel, `depends-parsing` stubbed, `merge-handler` last. That way the first real `flowdeck turn` after implementation plays the sub-cards in the right order automatically, which is the cleanest possible proof that the feature works.
+
 - [ ] Analyse SPEC.md in this card until you are ready to start coding
 
 ## HUMAN
@@ -79,9 +81,25 @@ Each sub-card should carry a `depends:` header encoding these constraints, eatin
 
 **`--serial` flag documentation gap.** The flag is specified but no card covers where it gets documented — `--help` output, README, AGENT.md template. If not explicitly assigned it'll be skipped.
 
-- [ ] Should this card be retired to a spec/index once the five sub-cards exist, with its BOT section replaced by a single scaffolding task?
+- [x] Should this card be retired to a spec/index once the five sub-cards exist, with its BOT section replaced by a single scaffolding task?
+  > **Yes — replace the BOT section now with a single scaffolding task, then retire.** The card has served its purpose as a thinking space. Replace the stale "Analyse SPEC.md" task with one concrete BOT item: `scaffold the five sub-cards with correct depends: headers and seed BOT tasks from the spec`. Once that task is marked done and the five sub-cards exist, add a `## DISCARDED` section to this card with the reason "decomposed into sub-cards" and leave it as a permanent spec index. Don't delete it — the HUMAN Q&A here is the canonical decision log for the whole feature.
+
+- [x] Where does `--serial` get documented?
+  > **Three places, one sub-card.** Add a sixth card `.flowdeck/parallel-subagents/docs-and-flags/` (or fold it into `merge-handler` as a final BOT task) covering: (1) `--help` output in `cli.ts` — the usage string already lists commands, `--serial` goes there; (2) README `Commands` table — add a row for the flag under `turn`; (3) the `scaffold/AGENT.md.flowdeck` template — add a one-liner noting that `--serial` exists for when the orchestrator's plan is wrong. The AGENT.md template is the most important of the three: it's what every new flowdeck project gets on `init`, so future users discover the flag at setup time rather than when something goes wrong mid-turn.
+
+#### Flash observations (2026-05-15)
+
+**BOT task 1 — scaffold sub-cards.** This is the real work. The executor needs to: create five (or six) sub-card directories under `.flowdeck/parallel-subagents/`, write a `TODO.md` in each with `depends:` frontmatter matching the sequencing in the Status section, and seed each with BOT items synthesised from the HUMAN Q&A above. No external spec file needed — everything required is in this card. `spawnClaude` and `turnCommand` impl notes are sufficient to write concrete, actionable BOT tasks for each sub-card.
+
+**BOT task 2 — "Analyse SPEC.md" — is a ghost task.** There is no SPEC.md file in this repo (already flagged in the Status section). If played as-is, the executor will either invent a file read that returns nothing or halt confused. It must be removed or replaced before this card is played. The Status section already calls this out and specifies the replacement: one scaffolding task.
+
+**Five-vs-six sub-card mismatch.** BOT task 1 says "five sub-cards" but the final Q&A resolved a sixth (`docs-and-flags` or folded into `merge-handler`). The executor will follow the literal task and create five, leaving `--serial` documentation unassigned. Human decision needed before play.
+
+**Retirement trigger is well-defined.** Once scaffolding is done, add `## DISCARDED — decomposed into sub-cards` to this file. No further BOT work belongs here after that point.
+
+- [ ] Should BOT task 2 (`Analyse SPEC.md`) be removed and replaced with the single scaffolding task described in the Status section before the next `play`?
   > _answer:_
 
-- [ ] Where does `--serial` get documented — `--help` output only, or also the AGENT.md scaffold and README?
+- [ ] Should BOT task 1 be updated to say "six sub-cards" (explicitly including `docs-and-flags`), or should `--serial` documentation be folded as a final BOT item inside `merge-handler`?
   > _answer:_
 
