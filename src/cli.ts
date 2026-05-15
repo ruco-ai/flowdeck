@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { execSync, spawn } from 'node:child_process'
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, createWriteStream } from 'node:fs'
 import { syncCard } from './github.js'
+import { serveCommand } from './serve.js'
 
 const [,, subcmd, ...rest] = process.argv
 
@@ -733,6 +734,7 @@ Commands:
   add <column> [title]        Create a new column + card
   append <column> <task>      Append a task to an existing card
   gh-sync <card-file>         Sync card state to a linked GitHub Issue
+  serve [--port 7331]         Start the HTTP API server on localhost
 
 Examples:
   flowdeck init
@@ -807,6 +809,8 @@ dist/
   appendCommand(rest)
 } else if (subcmd === 'gh-sync') {
   await ghSyncCommand(rest)
+} else if (subcmd === 'serve') {
+  await serveCommand(rest)
 } else {
   console.error(`Unknown command: ${subcmd}`)
   process.exit(1)

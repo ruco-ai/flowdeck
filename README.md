@@ -125,6 +125,7 @@ mdblu get --all --output .flowdeck/templates/
 | `flowdeck add <column> [title]` | Create a new column and card |
 | `flowdeck append <column> <task>` | Append a task to an existing card (ends with `?` → goes to HUMAN) |
 | `flowdeck gh-sync <card-file>` | Sync card state to a linked GitHub Issue |
+| `flowdeck serve [--port 7331]` | Start the HTTP API server on localhost |
 
 ### Slash commands
 
@@ -187,6 +188,49 @@ Labels are auto-created in the repo on first use.
 | `--verbose` | Log API requests to stderr |
 
 Requires a GitHub token with `repo` scope (issues read/write). Set `GITHUB_TOKEN` or pass `--token`.
+
+### `flowdeck serve` — HTTP API
+
+Expose flowdeck over a local HTTP API so any tool — GitHub Actions, VS Code extensions, Codex CLI, web dashboards — can drive the same workflow without coupling to Claude Code.
+
+```bash
+flowdeck serve                  # start on port 7331 (default)
+flowdeck serve --port 9000      # custom port
+flowdeck serve --no-auth        # disable token check
+flowdeck serve --agent codex    # override default agent
+```
+
+The server binds to `127.0.0.1` only. Set `FLOWDECK_API_TOKEN` to enable bearer token auth (all endpoints except `/flowdeck/health` require the header when set).
+
+**Endpoints:**
+
+| Method | Path | What it does |
+|--------|------|-------------|
+| `GET` | `/flowdeck/health` | Liveness check — no auth required |
+| `GET` | `/flowdeck/status` | Server state, active card, git status |
+| `GET` | `/flowdeck/cards` | All cards with current states |
+| `GET` | `/flowdeck/cards/:id` | Single card |
+| `POST` | `/flowdeck/run` | Start a card's BOT section (`{ card_id }`) |
+| `POST` | `/flowdeck/run/:id/cancel` | Cancel a running card |
+| `POST` | `/flowdeck/turn` | Run a full deck turn |
+| `POST` | `/flowdeck/cards/:id/human-done` | Mark HUMAN section complete, commit |
+| `GET` | `/flowdeck/deck` | Full deck as JSON (raw + cards + agent context) |
+| `POST` | `/flowdeck/deck/sync` | `git pull --rebase` and re-parse deck |
+| `GET` | `/flowdeck/events` | SSE stream — real-time BOT output and state changes |
+
+**Card states:** `idle → bot-running → bot-done → human-pending → human-done → archived`
+
+**SSE events:** `bot:output` (streaming text), `bot:done`, `state:change`, `error`. Clients reconnect with `Last-Event-ID` to replay from the ring buffer (last 100 events).
+
+Nested card slugs use `--` as separator in URLs: `.flowdeck/payments/stripe-webhook/TODO.md` → card id `payments--stripe-webhook`.
+
+**Environment variables:**
+
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `FLOWDECK_API_TOKEN` | — | Enable bearer auth |
+| `FLOWDECK_PORT` | `7331` | Default port |
+| `FLOWDECK_AGENT` | `claude-code` | Default agent |
 
 ## Folder structure
 
