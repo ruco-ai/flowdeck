@@ -77,6 +77,15 @@ flowdeck play payments
 
 Claude reads the card, works through the `## BOT` tasks, marks them done, and commits.
 
+### `flowdeck flash <slug>` — review without executing
+
+```bash
+flowdeck flash payments
+# annotates the card with analysis, questions, and risks — no tasks executed
+```
+
+Claude reads the card and writes observations into `## HUMAN → #### COMMENTS`. Anything requiring a decision becomes a `- [ ]` item under `## HUMAN`. BOT tasks are left untouched. Useful before starting a card to surface unknowns.
+
 ### `flowdeck turn` — full hand
 
 ```bash
@@ -109,10 +118,11 @@ mdblu get --all --output .flowdeck/templates/
 | Command | What it does |
 |---------|-------------|
 | `flowdeck init` | Create `.flowdeck/` scaffold in the current directory |
-| `flowdeck play <slug>` | Play a single card by column name |
+| `flowdeck play <slug>` | Play a single card — Claude executes all BOT tasks |
+| `flowdeck flash <slug>` | Review a card — Claude annotates without executing |
 | `flowdeck turn` | Pass the full hand to Claude (prioritize, discard, combine, execute, document) |
 | `flowdeck add <column> [title]` | Create a new column and card |
-| `flowdeck upgrade <column> <task>` | Append a BOT task to an existing card |
+| `flowdeck append <column> <task>` | Append a task to an existing card (ends with `?` → goes to HUMAN) |
 
 ### Slash commands
 
@@ -123,7 +133,7 @@ After `flowdeck init`, your project gets slash commands in `.claude/commands/`:
 | `/play-card <slug>` | Play a single card by name |
 | `/turn` | Play the full hand (assess, discard, combine, execute, document) |
 | `/add-card <column> [tasks]` | Create a new column and card |
-| `/upgrade-card <column> <task>` | Append a task or note to an existing card |
+| `/append-card <column> <task>` | Append a task or note to an existing card |
 
 ## Folder structure
 

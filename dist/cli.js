@@ -423,7 +423,7 @@ dist/
   start/TODO.md          — first work area
   templates/             — mdblu templates (source: ${templateSource})
   .flowdeckignore
-  .claude/commands/      — slash commands (play-card, turn, add-card, upgrade-card)
+  .claude/commands/      — slash commands (play-card, flash-card, turn, add-card, append-card)
 `);
 }
 else if (subcmd === 'play') {
