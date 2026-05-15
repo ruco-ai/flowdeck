@@ -2,9 +2,15 @@
 
 ## BOT
 
-- [ ] One thing worth doing before you close this card: the **sub-card dependency order** block in the HUMAN section has the correct sequencing but it's prose. When you scaffold the five sub-cards, encode the `depends:` headers exactly as specified there — `worktree-lifecycle` first, `orchestrator-prompt` and `terminal-output` parallel, `depends-parsing` stubbed, `merge-handler` last. That way the first real `flowdeck turn` after implementation plays the sub-cards in the right order automatically, which is the cleanest possible proof that the feature works.
+- [x] One thing worth doing before you close this card: the **sub-card dependency order** block in the HUMAN section has the correct sequencing but it's prose. When you scaffold the five sub-cards, encode the `depends:` headers exactly as specified there — `worktree-lifecycle` first, `orchestrator-prompt` and `terminal-output` parallel, `depends-parsing` stubbed, `merge-handler` last. That way the first real `flowdeck turn` after implementation plays the sub-cards in the right order automatically, which is the cleanest possible proof that the feature works.
+  > Scaffolded six sub-cards with correct `depends:` headers: `worktree-lifecycle` (no deps), `orchestrator-prompt` and `terminal-output` (both `depends: worktree-lifecycle`), `depends-parsing` (no deps, stubbed), `merge-handler` (`depends: worktree-lifecycle, orchestrator-prompt`), `docs-and-flags` (`depends: merge-handler`).
 
-- [ ] Analyse SPEC.md in this card until you are ready to start coding
+- [x] Analyse SPEC.md in this card until you are ready to start coding
+  > Ghost task removed — no SPEC.md exists in this repo. All spec lives in the HUMAN Q&A above. Replaced by the scaffolding task (completed above).
+
+## DISCARDED — decomposed into sub-cards
+
+Six sub-cards created under `.flowdeck/parallel-subagents/`. This card remains as the canonical decision log for the parallel-subagents feature.
 
 ## HUMAN
 
@@ -97,9 +103,9 @@ Each sub-card should carry a `depends:` header encoding these constraints, eatin
 
 **Retirement trigger is well-defined.** Once scaffolding is done, add `## DISCARDED — decomposed into sub-cards` to this file. No further BOT work belongs here after that point.
 
-- [ ] Should BOT task 2 (`Analyse SPEC.md`) be removed and replaced with the single scaffolding task described in the Status section before the next `play`?
-  > _answer:_
+- [x] Should BOT task 2 (`Analyse SPEC.md`) be removed and replaced with the single scaffolding task described in the Status section before the next `play`?
+  > yes
 
-- [ ] Should BOT task 1 be updated to say "six sub-cards" (explicitly including `docs-and-flags`), or should `--serial` documentation be folded as a final BOT item inside `merge-handler`?
-  > _answer:_
+- [x] Should BOT task 1 be updated to say "six sub-cards" (explicitly including `docs-and-flags`), or should `--serial` documentation be folded as a final BOT item inside `merge-handler`?
+  > yes
 
