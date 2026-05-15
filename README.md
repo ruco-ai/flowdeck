@@ -124,6 +124,7 @@ mdblu get --all --output .flowdeck/templates/
 | `flowdeck turn --serial` | Run cards sequentially using the legacy single-agent path |
 | `flowdeck add <column> [title]` | Create a new column and card |
 | `flowdeck append <column> <task>` | Append a task to an existing card (ends with `?` → goes to HUMAN) |
+| `flowdeck gh-sync <card-file>` | Sync card state to a linked GitHub Issue |
 
 ### Slash commands
 
@@ -135,6 +136,57 @@ After `flowdeck init`, your project gets slash commands in `.claude/commands/`:
 | `/turn` | Play the full hand (assess, discard, combine, execute, document) |
 | `/add-card <column> [tasks]` | Create a new column and card |
 | `/append-card <column> <task>` | Append a task or note to an existing card |
+
+### `flowdeck gh-sync` — GitHub Issues integration
+
+Link a card to a GitHub Issue and keep them in sync across the human↔AI lifecycle.
+
+**Step 1** — add `github_issue` frontmatter to a card:
+
+```markdown
+---
+github_issue: owner/repo
+github_labels: [feature, backend]
+---
+# payments
+```
+
+**Step 2** — run `gh-sync` at each lifecycle phase:
+
+```bash
+# Create the GitHub Issue (writes issue number back to the card)
+flowdeck gh-sync .flowdeck/payments/TODO.md
+
+# After Claude completes BOT tasks — posts a completion report as a comment
+flowdeck gh-sync .flowdeck/payments/TODO.md --phase bot-done
+
+# After human review — closes the issue
+flowdeck gh-sync .flowdeck/payments/TODO.md --phase human-done
+```
+
+Omitting `--phase` auto-detects: if all `## HUMAN` checkboxes are checked → `human-done`, otherwise → `bot-done`.
+
+**Lifecycle labels** applied automatically:
+
+| Phase | Label applied | Labels removed |
+|-------|--------------|----------------|
+| `created` | `flowdeck:draft` | — |
+| `bot-done` | `flowdeck:review` | `flowdeck:draft`, `flowdeck:bot` |
+| `human-done` | `flowdeck:done` | `flowdeck:draft`, `flowdeck:bot`, `flowdeck:review` |
+
+Labels are auto-created in the repo on first use.
+
+**Options:**
+
+| Flag | Effect |
+|------|--------|
+| `--phase <created\|bot-done\|human-done>` | Force a specific phase |
+| `--dry-run` | Print what would happen without making API calls |
+| `--no-create` | Error instead of auto-creating a new issue |
+| `--token <token>` | GitHub token (default: `$GITHUB_TOKEN`) |
+| `--verbose` | Log API requests to stderr |
+
+Requires a GitHub token with `repo` scope (issues read/write). Set `GITHUB_TOKEN` or pass `--token`.
 
 ## Folder structure
 
