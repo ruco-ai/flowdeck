@@ -120,7 +120,8 @@ mdblu get --all --output .flowdeck/templates/
 | `flowdeck init` | Create `.flowdeck/` scaffold in the current directory |
 | `flowdeck play <slug>` | Play a single card — Claude executes all BOT tasks |
 | `flowdeck flash <slug>` | Review a card — Claude annotates without executing |
-| `flowdeck turn` | Pass the full hand to Claude (prioritize, discard, combine, execute, document) |
+| `flowdeck turn` | Pass the full hand to Claude — orchestrates cards in parallel, executes, documents |
+| `flowdeck turn --serial` | Run cards sequentially using the legacy single-agent path |
 | `flowdeck add <column> [title]` | Create a new column and card |
 | `flowdeck append <column> <task>` | Append a task to an existing card (ends with `?` → goes to HUMAN) |
 
