@@ -1,0 +1,20 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "minimumReleaseAge": "3 days",
+  "allowedRegistries": ["https://registry.npmjs.org"],
+  "packageRules": [
+    {
+      "matchDepTypes": ["dependencies"],
+      "minimumReleaseAge": "7 days"
+    },
+    {
+      "matchDepTypes": ["devDependencies"],
+      "minimumReleaseAge": "3 days"
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security"]
+  }
+}
