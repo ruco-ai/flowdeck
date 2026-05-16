@@ -9,6 +9,8 @@
 - [x] FYI: the sitegrow card at  is nested two levels
   > Confirmed the two-level nesting as the cause. Fix applied in `cli.ts:46–67`.
 
+- [x] bot must be explicitly instructed to check, when every card play and every turn, to check if documents need some update
+  > Added step 5 to `buildPlayPrompt` and tightened `buildTurnPrompt`'s "After the hand" section to say "check if … need updating". Same wording applied to `scaffold/.claude/commands/play-card.md` and `turn.md`.
 
 
 ## HUMAN
@@ -36,12 +38,5 @@ The task is to verify `flowdeck turn` works correctly when run against cards in 
 - Fix required: scan two levels deep (or recursively), not just one. A bounded two-level scan is safer — full recursion would match deeply-nested files that are not cards.
 - Either way, the first BOT item ("check scaffold cards") is a red herring — the real failure is structural, not scaffold-specific.
 
-- [ ] Was a specific failure observed (e.g. `turn` crashing, picking up wrong cards, skipping cards)? What was the symptom?
-  > _answer:_
 
-- [ ] In the sitegrow project, is the deck folder named `.flowdeck/` (standard) or `sitegrow.flowdeck/`? BOT item 3 confirms two-level nesting, but the deck folder name in item 2 (`sitegrow.flowdeck/milestones/m6`) is still ambiguous — could just be a path label in the note, not the literal folder name.
-  > _answer:_
-
-- [ ] Should the scaffold's `start/TODO.md.flowdeck` have no open BOT tasks (so `turn` on a fresh project says "deck is clear") rather than a placeholder?
-  > _answer:_
 

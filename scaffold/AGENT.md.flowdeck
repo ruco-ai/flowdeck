@@ -5,6 +5,13 @@
 > The deck is `.flowdeck/`. Columns are folders inside it. Cards are `TODO.md` files.
 > Run `flowdeck turn` to play the full hand. Run `flowdeck play <slug>` to play one card.
 
+## Commands
+
+- `flowdeck turn` — orchestrates cards in parallel using declared `depends:` headers
+- `flowdeck turn --serial` — bypasses parallel execution; use when the orchestrator's grouping is wrong
+- `flowdeck play <slug>` — plays a single card; warns if declared dependencies have open items
+- `flowdeck play <slug> --no-dep-check` — skips dependency check
+
 ## Architecture
 
 <!-- Describe the project structure, stack, and key conventions here. -->

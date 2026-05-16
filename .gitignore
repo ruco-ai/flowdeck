@@ -4,6 +4,8 @@
 *.swo
 *~
 .env
+.env.local
+.env.production
 .flowdeck
 .claude
 !scaffold/.claude
